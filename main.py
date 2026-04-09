@@ -7,6 +7,8 @@ from data_aggregator import aggregate_data
 from models.ar_model import run_ar_model
 from models.arima_model import run_arima_model
 from models.nn_model import run_nn_model
+from models.rf_model import run_rf_model
+from models.svm_model import run_svm_model
 
 def get_user_choice(prompt: str, options: list):
     while True:
@@ -88,9 +90,13 @@ def main():
         elif model_choice == 2:
             results = run_arima_model(df_agg, target_col=target_beam, train_frac=0.8, order=(5, 1, 0), horizon=horizon)
         elif model_choice == 3:
-            print("Modèle Random Forest en cours d'intégration...")
+            seq_len = min(10, max(1, len(df_agg) // 20))
+            if seq_len < 1: seq_len = 1
+            results = run_rf_model(df_agg, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon)
         elif model_choice == 4:
-            print("Modèle SVM en cours d'intégration...")
+            seq_len = min(10, max(1, len(df_agg) // 20))
+            if seq_len < 1: seq_len = 1
+            results = run_svm_model(df_agg, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon)
         elif model_choice == 5:
             seq_len = min(10, max(1, len(df_agg) // 20))
             if seq_len < 1: seq_len = 1
