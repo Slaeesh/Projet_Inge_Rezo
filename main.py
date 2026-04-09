@@ -1,35 +1,51 @@
 import os
 import sys
+import warnings
 
 from data_generator import generate_fake_traffic_data
 from data_aggregator import aggregate_data
 from models.ar_model import run_ar_model
+from models.arima_model import run_arima_model
 from models.nn_model import run_nn_model
 
-def get_user_choice(prompt, options):
+def get_user_choice(prompt: str, options: list):
     while True:
         try:
             choice = int(input(prompt))
             if choice in options:
                 return choice
             else:
-                print(f"Veuillez choisir une option valide : {list(options.keys)}")
+                print(f"Veuillez choisir une option valide : {options}")
         except ValueError:
             print("Entrée invalide. Veuillez entrer un nombre.")
 
 def main():
-    print("=" * 50)
-    print("Outil de Prédiction de Trafic Réseau par Satellite")
-    print("=" * 50)
+    print("=" * 60)
+    print(" Outil de Prédiction de Trafic Réseau par Satellite ")
+    print("=" * 60)
     
-    # Étape 1 : Génération des données
-    print("\n1. Génération des données de trafic")
-    print("Simulation du trafic avec un cycle journalier et du bruit (en attendant ns-2)...")
-    df = generate_fake_traffic_data(duration_hours=48)
-    print(f"Jeu de données généré (résolution 1s) : {len(df)} lignes.")
+    # Étape 1 : Choix de la Voie
+    print("\n1. Configuration du Trafic")
+    print("  1 - Voie Aller (Forward Link) : trafic descendant, lisse")
+    print("  2 - Voie Retour (Return Link) : trafic montant, fragmenté")
+    link_choice = get_user_choice("Votre choix (1 ou 2) : ", [1, 2])
+    link_type = 'forward' if link_choice == 1 else 'return'
     
-    # Étape 2 : Choix de la fréquence d'agrégation
-    print("\n2. Choix de la fréquence d'agrégation temporelle")
+    print("\nSimulation du trafic en cours...")
+    num_beams = 3
+    df = generate_fake_traffic_data(duration_hours=48, link_type=link_type, num_beams=num_beams)
+    print(f"[{'Voie Aller' if link_type == 'forward' else 'Voie Retour'}] Jeu de données généré : {len(df)} lignes, {num_beams} faisceaux.")
+    
+    # Étape 2 : Choix du Faisceau (Dimension Spatiale)
+    print("\n2. Sélection du Faisceau (Dimension Spatiale)")
+    options_beams = list(range(1, num_beams + 1))
+    for b in options_beams:
+        print(f"  {b} - beam_{b}")
+    beam_choice = get_user_choice(f"Quel faisceau cibler ? {options_beams} : ", options_beams)
+    target_beam = f'beam_{beam_choice}'
+    
+    # Étape 3 : Fréquence d'agrégation temporelle
+    print("\n3. Choix de la fréquence d'agrégation temporelle")
     print("  1 - 1 seconde (aucune agrégation supplémentaire)")
     print("  2 - 1 minute")
     print("  3 - 10 minutes")
@@ -40,49 +56,66 @@ def main():
     
     print(f"\nAgrégation des données avec Pandas à la fréquence : {selected_freq}")
     df_agg = aggregate_data(df, selected_freq)
-    print(f"Jeu de données agrégé : {len(df_agg)} lignes associées.")
+    print(f"Jeu de données agrégé : {len(df_agg)} lignes.")
     
     if len(df_agg) < 50:
-        print("Attention : le jeu de données agrégé est très petit, les modèles risquent de ne pas bien s'entraîner.")
-        print("Diminuez l'intervalle d'agrégation ou augmentez la durée de génération.")
+        print("! Attention : le jeu de données agrégé est trop petit pour de bons apprentissages !")
     
-    # Étape 3 : Choix du modèle
-    print("\n3. Choix du modèle prédictif")
-    print("  1 - Modèle Statistique (Autorégressif - AR)")
-    print("  2 - Modèle Réseaux de Neurones (MLP - PyTorch)")
+    # Étape 4 : Horizon de prédiction
+    print("\n4. Horizon de prédiction")
+    print("Combien de pas de temps dans le futur souhaitez-vous prédire ? (ex: 1 = pas suivant)")
+    horizon = get_user_choice("Votre choix (entier positif, ex: 1, 3, 5..) : ", list(range(1, 100)))
     
-    model_choice = get_user_choice("Votre choix (1 ou 2) : ", [1, 2])
+    # Étape 5 : Choix du Modèle (Dispatch Menu)
+    print("\n5. Architecture Prédictive : Modèles")
+    print("  1 - AR/MA (Statistique AutoRégressif)")
+    print("  2 - ARIMA (Statistique Intégré)")
+    print("  3 - Random Forest (Machine Learning)")
+    print("  4 - SVM (Support Vector Machine)")
+    print("  5 - RNN/MLP (Deep Learning PyTorch)")
     
-    # Étape 4 : Exécution
-    print("\nLancement de l'entraînement et de la prédiction...\n" + "-" * 30)
+    model_choice = get_user_choice("Votre choix (1 à 5) : ", [1, 2, 3, 4, 5])
     
+    print("\n" + "-" * 40)
+    print("Lancement de l'entraînement et de la prédiction...")
+    print("-" * 40)
+    
+    results = None
     try:
+        # Dispatcher local pour exécuter le module adéquat
         if model_choice == 1:
-            # Modèle AR
-            results = run_ar_model(df_agg, train_frac=0.8, lags=10)
-        else:
-            # Modèle NN
-            # On adapte la longueur de séquence en fonction du nombre de données dispos
+            results = run_ar_model(df_agg, target_col=target_beam, train_frac=0.8, lags=10, horizon=horizon)
+        elif model_choice == 2:
+            results = run_arima_model(df_agg, target_col=target_beam, train_frac=0.8, order=(5, 1, 0), horizon=horizon)
+        elif model_choice == 3:
+            print("Modèle Random Forest en cours d'intégration...")
+        elif model_choice == 4:
+            print("Modèle SVM en cours d'intégration...")
+        elif model_choice == 5:
             seq_len = min(10, max(1, len(df_agg) // 20))
-            if seq_len < 1:
-                seq_len = 1
-            results = run_nn_model(df_agg, train_frac=0.8, seq_length=seq_len, epochs=50)
-
-        # Affichage des résultats finaux (Complexité et Précision)
-        print("\n--- RÉSULTATS ---")
-        print(f"Modèle utilisé  : {results['model_name']}")
-        print(f"Temps exécution : {results['execution_time']:.4f} secondes (Complexité algorithmique / Wall time)")
-        print(f"Erreur Moyenne  : {results['mae']:.4f} Mbps (Précision MAE absolue)")
-        print("-----------------")
+            if seq_len < 1: seq_len = 1
+            results = run_nn_model(df_agg, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon, epochs=50)
         
+        if results:
+            print("\n" + "=" * 40)
+            print("               RÉSULTATS               ")
+            print("=" * 40)
+            print(f"Modèle utilisé          : {results['model_name']}")
+            print(f"Faisceau / Beam         : {target_beam}")
+            print(f"Horizon temporel        : {results['horizon']} ({selected_freq} en avant)")
+            print(f"Temps exécution         : {results['execution_time']:.4f} sec")
+            print(f"Erreur Moyenne (MAE)    : {results['mae']:.4f} Mbps")
+            print("-" * 40)
+            print("Métriques Métiers (Allocation) :")
+            print(f" - Taux de Sous-allocation : {results['under_allocation']:.2f} %  -> Risque de Congestion")
+            print(f" - Taux de Sur-allocation  : {results['over_allocation']:.2f} %  -> Gaspillage de ressources")
+            print("=" * 40)
+            
     except Exception as e:
-        print(f"\nUne erreur est survenue lors de l'exécution du modèle : {e}")
+        print(f"\nUne erreur est survenue lors de l'exécution : {e}")
 
 if __name__ == '__main__':
-    # Empêche quelques warnings de s'afficher dans la belle interface CLI
-    import warnings
     warnings.filterwarnings('ignore')
-    
     try:
         main()
     except KeyboardInterrupt:

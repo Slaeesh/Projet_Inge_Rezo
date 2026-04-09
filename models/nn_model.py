@@ -1,12 +1,13 @@
 import time
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.metrics import mean_absolute_error
 
 class MLP(nn.Module):
-    def __init__(self, seq_length):
+    def __init__(self, seq_length: int):
         super(MLP, self).__init__()
         self.network = nn.Sequential(
             nn.Linear(seq_length, 64),
@@ -19,54 +20,64 @@ class MLP(nn.Module):
     def forward(self, x):
         return self.network(x)
 
-def create_sequences(data, seq_length):
+def create_sequences(data: np.ndarray, seq_length: int, horizon: int):
+    """
+    Crée les séquences d'entraînement.
+    La cible y se trouve à 'horizon' pas de temps APRÈS la fin de la séquence d'entrée.
+    """
     xs, ys = [], []
-    for i in range(len(data) - seq_length):
-        xs.append(data[i:i + seq_length])
-        ys.append(data[i + seq_length])
+    for i in range(len(data) - seq_length - horizon + 1):
+        xs.append(data[i : i + seq_length])
+        ys.append(data[i + seq_length + horizon - 1])
     return np.array(xs), np.array(ys)
 
-def run_nn_model(df, train_frac=0.8, seq_length=10, epochs=20, batch_size=32):
+def run_nn_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, seq_length: int = 10, horizon: int = 1, epochs: int = 20, batch_size: int = 32):
     """
     Exécute un modèle de Réseau de Neurones sur la série de trafic.
 
     Args:
-        df (pd.DataFrame): DataFrame avec la colonne 'traffic_mbps'.
+        df (pd.DataFrame): DataFrame global.
+        target_col (str): Nom de la colonne faisceau ciblé.
         train_frac (float): Fraction de données pour l'entraînement.
-        seq_length (int): Longueur de la séquence (sliding window) en entrée.
+        seq_length (int): Longueur de la séquence.
+        horizon (int): Horizon de prédiction k.
         epochs (int): Nombre d'époques d'entraînement.
         batch_size (int): Taille de batch.
         
     Returns:
-        dict: Résultats, y compris MAE et temps d'exécution.
+        dict: contenant les métriques complètes.
     """
-    series = df['traffic_mbps'].values
+    series = df[target_col].values
     
-    # Création des séquences (X, y)
-    X, y = create_sequences(series, seq_length)
+    # Création des séquences (X, y) en tenant compte de l'horizon
+    X, y = create_sequences(series, seq_length, horizon)
+    
+    if len(X) == 0:
+        raise ValueError("Les données sont trop courtes pour cette séquence et cet horizon.")
     
     # Split Train/Test
     split_idx = int(len(X) * train_frac)
     X_train, X_test = X[:split_idx], X[split_idx:]
     y_train, y_test = y[:split_idx], y[split_idx:]
     
-    # Conversion en tenseurs PyTorch
+    if len(X_train) == 0 or len(X_test) == 0:
+        raise ValueError("Ensemble d'entraînement ou de test vide.")
+    
     X_train_t = torch.tensor(X_train, dtype=torch.float32)
     y_train_t = torch.tensor(y_train, dtype=torch.float32).unsqueeze(1)
     X_test_t = torch.tensor(X_test, dtype=torch.float32)
     y_test_t = torch.tensor(y_test, dtype=torch.float32).unsqueeze(1)
     
-    # DataLoaders
     train_data = TensorDataset(X_train_t, y_train_t)
     train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size)
     
     model = MLP(seq_length)
-    criterion = nn.L1Loss() # MAE Loss
+    criterion = nn.L1Loss() # MAE
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     
     start_time = time.time()
     
-    # Mode Entraînement
+    # Entraînement
     model.train()
     for __ in range(epochs):
         for inputs, targets in train_loader:
@@ -76,7 +87,7 @@ def run_nn_model(df, train_frac=0.8, seq_length=10, epochs=20, batch_size=32):
             loss.backward()
             optimizer.step()
             
-    # Mode Prédiction
+    # Prédiction
     model.eval()
     with torch.no_grad():
         test_predictions = model(X_test_t)
@@ -84,15 +95,22 @@ def run_nn_model(df, train_frac=0.8, seq_length=10, epochs=20, batch_size=32):
     end_time = time.time()
     execution_time = end_time - start_time
     
-    pred_np = test_predictions.squeeze().numpy()
-    true_np = y_test_t.squeeze().numpy()
+    pred_np = test_predictions.squeeze(-1).numpy()
+    true_np = y_test_t.squeeze(-1).numpy()
     
     mae = mean_absolute_error(true_np, pred_np)
     
+    # Métriques métier
+    under_allocation = np.mean(pred_np < true_np) * 100
+    over_allocation = np.mean(pred_np > true_np) * 100
+    
     return {
-        'model_name': 'NN (MLP PyTorch)',
+        'model_name': 'RNN/MLP PyTorch',
+        'horizon': horizon,
         'true_values': true_np,
         'predictions': pred_np,
         'mae': mae,
+        'under_allocation': under_allocation,
+        'over_allocation': over_allocation,
         'execution_time': execution_time
     }
