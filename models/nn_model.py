@@ -6,19 +6,27 @@ import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.metrics import mean_absolute_error
 
-class MLP(nn.Module):
-    def __init__(self, seq_length: int):
-        super(MLP, self).__init__()
-        self.network = nn.Sequential(
-            nn.Linear(seq_length, 64),
-            nn.ReLU(),
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32, 1)
-        )
+class GRUModel(nn.Module):
+    def __init__(self, input_size=1, hidden_size=32, num_layers=1):
+        super(GRUModel, self).__init__()
+        self.gru = nn.GRU(input_size, hidden_size, num_layers, batch_first=True)
+        self.fc = nn.Linear(hidden_size, 1)
         
     def forward(self, x):
-        return self.network(x)
+        x = x.unsqueeze(-1)
+        out, _ = self.gru(x)
+        return self.fc(out[:, -1, :])
+
+class LSTMModel(nn.Module):
+    def __init__(self, input_size=1, hidden_size=32, num_layers=1):
+        super(LSTMModel, self).__init__()
+        self.lstm = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True)
+        self.fc = nn.Linear(hidden_size, 1)
+        
+    def forward(self, x):
+        x = x.unsqueeze(-1)
+        out, _ = self.lstm(x)
+        return self.fc(out[:, -1, :])
 
 def create_sequences(data: np.ndarray, seq_length: int, horizon: int):
     """
@@ -31,7 +39,7 @@ def create_sequences(data: np.ndarray, seq_length: int, horizon: int):
         ys.append(data[i + seq_length + horizon - 1])
     return np.array(xs), np.array(ys)
 
-def run_nn_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, seq_length: int = 10, horizon: int = 1, epochs: int = 20, batch_size: int = 32):
+def run_nn_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, seq_length: int = 10, horizon: int = 1, epochs: int = 20, batch_size: int = 32, model_type: str = 'gru'):
     """
     Exécute un modèle de Réseau de Neurones sur la série de trafic.
 
@@ -43,6 +51,7 @@ def run_nn_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, seq
         horizon (int): Horizon de prédiction k.
         epochs (int): Nombre d'époques d'entraînement.
         batch_size (int): Taille de batch.
+        model_type (str): Type de modèle ('gru' ou 'lstm').
         
     Returns:
         dict: contenant les métriques complètes.
@@ -71,7 +80,15 @@ def run_nn_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, seq
     train_data = TensorDataset(X_train_t, y_train_t)
     train_loader = DataLoader(train_data, shuffle=True, batch_size=batch_size)
     
-    model = MLP(seq_length)
+    if model_type == 'gru':
+        model = GRUModel()
+        model_name = 'GRU PyTorch'
+    elif model_type == 'lstm':
+        model = LSTMModel()
+        model_name = 'LSTM PyTorch'
+    else:
+        raise ValueError("model_type doit être 'gru' ou 'lstm'")
+        
     criterion = nn.L1Loss() # MAE
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
     
@@ -105,7 +122,7 @@ def run_nn_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, seq
     over_allocation = np.mean(pred_np > true_np) * 100
     
     return {
-        'model_name': 'RNN/MLP PyTorch',
+        'model_name': model_name,
         'horizon': horizon,
         'true_values': true_np,
         'predictions': pred_np,

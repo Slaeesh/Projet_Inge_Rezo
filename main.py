@@ -9,6 +9,7 @@ from models.arima_model import run_arima_model
 from models.nn_model import run_nn_model
 from models.rf_model import run_rf_model
 from models.svm_model import run_svm_model
+from plot_utils import plot_single_result, plot_comparison
 
 def get_user_choice(prompt: str, options: list):
     while True:
@@ -25,6 +26,12 @@ def main():
     print("=" * 60)
     print(" Outil de Prédiction de Trafic Réseau par Satellite ")
     print("=" * 60)
+    
+    # Mode d'exécution
+    print("\n0. Mode d'exécution")
+    print("  1 - Analyse Classique (1 modèle avec graphique simple)")
+    print("  2 - Comparaison Globale (Couverture de tous les modèles avec graphiques multiples)")
+    exec_mode = get_user_choice("Votre choix (1 ou 2) : ", [1, 2])
     
     # Étape 1 : Choix de la Voie
     print("\n1. Configuration du Trafic")
@@ -69,53 +76,95 @@ def main():
     horizon = get_user_choice("Votre choix (entier positif, ex: 1, 3, 5..) : ", list(range(1, 100)))
     
     # Étape 5 : Choix du Modèle (Dispatch Menu)
-    print("\n5. Architecture Prédictive : Modèles")
-    print("  1 - AR/MA (Statistique AutoRégressif)")
-    print("  2 - ARIMA (Statistique Intégré)")
-    print("  3 - Random Forest (Machine Learning)")
-    print("  4 - SVM (Support Vector Machine)")
-    print("  5 - RNN/MLP (Deep Learning PyTorch)")
-    
-    model_choice = get_user_choice("Votre choix (1 à 5) : ", [1, 2, 3, 4, 5])
+    if exec_mode == 1:
+        print("\n5. Architecture Prédictive : Modèles")
+        print("  1 - AR/MA (Statistique AutoRégressif)")
+        print("  2 - ARIMA (Statistique Intégré)")
+        print("  3 - Random Forest (Machine Learning)")
+        print("  4 - SVM (Support Vector Machine)")
+        print("  5 - GRU (Deep Learning PyTorch)")
+        print("  6 - LSTM (Deep Learning PyTorch)")
+        
+        model_choice = get_user_choice("Votre choix (1 à 6) : ", [1, 2, 3, 4, 5, 6])
+    else:
+        print("\n5. Comparaison Globale : Tous les algorithmes vont être exécutés sur le même jeu de données.")
+        model_choice = None
     
     print("\n" + "-" * 40)
     print("Lancement de l'entraînement et de la prédiction...")
     print("-" * 40)
     
     results = None
+    all_results = []
+    
     try:
-        # Dispatcher local pour exécuter le module adéquat
-        if model_choice == 1:
-            results = run_ar_model(df_agg, target_col=target_beam, train_frac=0.8, lags=10, horizon=horizon)
-        elif model_choice == 2:
-            results = run_arima_model(df_agg, target_col=target_beam, train_frac=0.8, order=(5, 1, 0), horizon=horizon)
-        elif model_choice == 3:
-            seq_len = min(10, max(1, len(df_agg) // 20))
-            if seq_len < 1: seq_len = 1
-            results = run_rf_model(df_agg, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon)
-        elif model_choice == 4:
-            seq_len = min(10, max(1, len(df_agg) // 20))
-            if seq_len < 1: seq_len = 1
-            results = run_svm_model(df_agg, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon)
-        elif model_choice == 5:
-            seq_len = min(10, max(1, len(df_agg) // 20))
-            if seq_len < 1: seq_len = 1
-            results = run_nn_model(df_agg, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon, epochs=50)
+        seq_len = min(10, max(1, len(df_agg) // 20))
+        if seq_len < 1: seq_len = 1
         
-        if results:
+        def display_single_result(res, beam, freq):
             print("\n" + "=" * 40)
             print("               RÉSULTATS               ")
             print("=" * 40)
-            print(f"Modèle utilisé          : {results['model_name']}")
-            print(f"Faisceau / Beam         : {target_beam}")
-            print(f"Horizon temporel        : {results['horizon']} ({selected_freq} en avant)")
-            print(f"Temps exécution         : {results['execution_time']:.4f} sec")
-            print(f"Erreur Moyenne (MAE)    : {results['mae']:.4f} Mbps")
+            print(f"Modèle utilisé          : {res['model_name']}")
+            print(f"Faisceau / Beam         : {beam}")
+            print(f"Horizon temporel        : {res['horizon']} ({freq} en avant)")
+            print(f"Temps exécution         : {res['execution_time']:.4f} sec")
+            print(f"Erreur Moyenne (MAE)    : {res['mae']:.4f} Mbps")
             print("-" * 40)
             print("Métriques Métiers (Allocation) :")
-            print(f" - Taux de Sous-allocation : {results['under_allocation']:.2f} %  -> Risque de Congestion")
-            print(f" - Taux de Sur-allocation  : {results['over_allocation']:.2f} %  -> Gaspillage de ressources")
+            print(f" - Taux de Sous-allocation : {res['under_allocation']:.2f} %  -> Risque de Congestion")
+            print(f" - Taux de Sur-allocation  : {res['over_allocation']:.2f} %  -> Gaspillage de ressources")
             print("=" * 40)
+            plot_single_result(res)
+
+        if exec_mode == 1:
+            if model_choice == 1:
+                results = run_ar_model(df_agg, target_col=target_beam, train_frac=0.8, lags=10, horizon=horizon)
+            elif model_choice == 2:
+                results = run_arima_model(df_agg, target_col=target_beam, train_frac=0.8, order=(5, 1, 0), horizon=horizon)
+            elif model_choice == 3:
+                results = run_rf_model(df_agg, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon)
+            elif model_choice == 4:
+                results = run_svm_model(df_agg, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon)
+            elif model_choice == 5:
+                results = run_nn_model(df_agg, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon, epochs=50, model_type='gru')
+            elif model_choice == 6:
+                results = run_nn_model(df_agg, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon, epochs=50, model_type='lstm')
+            
+            if results:
+                display_single_result(results, target_beam, selected_freq)
+        else:
+            # Mode Comparaison
+            print("[1/6] Exécution du Modèle AR/MA...")
+            try: all_results.append(run_ar_model(df_agg, target_col=target_beam, train_frac=0.8, lags=10, horizon=horizon))
+            except Exception as e: print(f"  -> Erreur AR : {e}")
+            
+            print("[2/6] Exécution du Modèle ARIMA...")
+            try: all_results.append(run_arima_model(df_agg, target_col=target_beam, train_frac=0.8, order=(5, 1, 0), horizon=horizon))
+            except Exception as e: print(f"  -> Erreur ARIMA : {e}")
+            
+            print("[3/6] Exécution du Modèle Random Forest...")
+            try: all_results.append(run_rf_model(df_agg, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon))
+            except Exception as e: print(f"  -> Erreur RF : {e}")
+            
+            print("[4/6] Exécution du Modèle SVM...")
+            try: all_results.append(run_svm_model(df_agg, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon))
+            except Exception as e: print(f"  -> Erreur SVM : {e}")
+            
+            print("[5/6] Exécution du Modèle GRU...")
+            try: all_results.append(run_nn_model(df_agg, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon, epochs=50, model_type='gru'))
+            except Exception as e: print(f"  -> Erreur GRU : {e}")
+            
+            print("[6/6] Exécution du Modèle LSTM...")
+            try: all_results.append(run_nn_model(df_agg, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon, epochs=50, model_type='lstm'))
+            except Exception as e: print(f"  -> Erreur LSTM : {e}")
+
+            if all_results:
+                print(f"\nTerminé ! {len(all_results)} modèles testés avec avec succès.")
+                print("Génération et affichage des graphiques...")
+                plot_comparison(all_results)
+            else:
+                print("\nAucun modèle n'a produit de résultat exploitable.")
             
     except Exception as e:
         print(f"\nUne erreur est survenue lors de l'exécution : {e}")
