@@ -2,7 +2,7 @@ import time
 import numpy as np
 import pandas as pd
 from sklearn.svm import SVR
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error
 
 def create_sequences(data: np.ndarray, seq_length: int, horizon: int):
@@ -18,11 +18,17 @@ def run_svm_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, se
     """
     series = df[target_col].values
     
+    # 3. Sécurisation de la taille du Dataset vs Horizon
+    if len(series) < seq_length + horizon + 10:
+        print(f"⚠️ AVERTISSEMENT (SVM) : Le dataset est trop petit ({len(series)} lignes) pour la séquence ({seq_length}) et l'horizon ({horizon}).")
+        print("L'horizon est automatiquement réduit à 1.")
+        horizon = 1
+        seq_length = min(seq_length, max(1, len(series) // 3))
+        if len(series) < seq_length + horizon + 2:
+            raise ValueError(f"Dataset ridiculement petit ({len(series)}). Impossible de continuer.")
+            
     # Création des séquences (X, y)
     X, y = create_sequences(series, seq_length, horizon)
-    
-    if len(X) == 0:
-        raise ValueError("Les données sont trop courtes pour cette séquence et cet horizon.")
     
     # Split Train/Test
     split_idx = int(len(X) * train_frac)
@@ -32,9 +38,13 @@ def run_svm_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, se
     if len(X_train) == 0 or len(X_test) == 0:
         raise ValueError("Ensemble d'entraînement ou de test vide (pas assez de données).")
         
-    # Le SVM est très sensible à l'échelle des données. On standardise.
-    scaler_X = StandardScaler()
+    # 1. Normalisation obligatoire
+    scaler_X = MinMaxScaler()
+    scaler_y = MinMaxScaler()
+    
     X_train_scaled = scaler_X.fit_transform(X_train)
+    y_train_scaled = scaler_y.fit_transform(y_train.reshape(-1, 1)).flatten()
+    
     X_test_scaled = scaler_X.transform(X_test)
     
     # Initialisation du modèle
@@ -43,13 +53,16 @@ def run_svm_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, se
     start_time = time.time()
     
     # Entraînement
-    model.fit(X_train_scaled, y_train)
+    model.fit(X_train_scaled, y_train_scaled)
     
     # Prédiction
-    test_predictions = model.predict(X_test_scaled)
+    test_predictions_scaled = model.predict(X_test_scaled)
     
     end_time = time.time()
     execution_time = end_time - start_time
+    
+    # 1. (Suite) Inverse transform pour retrouver les Mbps
+    test_predictions = scaler_y.inverse_transform(test_predictions_scaled.reshape(-1, 1)).flatten()
     
     mae = mean_absolute_error(y_test, test_predictions)
     

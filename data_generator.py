@@ -56,6 +56,48 @@ def generate_fake_traffic_data(
     
     return df
 
+def load_real_traffic_data(link_type: str, file_path: str) -> pd.DataFrame:
+    """
+    Charge les données réelles de trafic depuis un CSV et simule des faisceaux spatiaux.
+    Convertit les Kbps en Mbps.
+    """
+    # Les fichiers de ns-2/scenarioX ont un en-tête et utilisent ';' comme séparateur
+    df_raw = pd.read_csv(file_path, sep=';')
+    
+    # Trouver la colonne contenant le débit (généralement 'throughput (kbps)')
+    col_name = None
+    for c in df_raw.columns:
+        if 'throughput' in c.lower() or 'kbps' in c.lower():
+            col_name = c
+            break
+    if col_name is None:
+        col_name = df_raw.columns[-1]
+        
+    throughput_kbps = df_raw[col_name].values
+    throughput_mbps = throughput_kbps / 1000.0  # Conversion Kbps -> Mbps
+    
+    periods = len(throughput_mbps)
+    # Création d'un index temporel factice d'une résolution de 1 seconde 
+    # pour garder la même structure (compatible avec l'agrégation Pandas)
+    dates = pd.date_range(start='2026-03-31 00:00:00', periods=periods, freq='s')
+    
+    # Génération des 3 faisceaux (50%, 30%, 20%) avec un léger bruit aléatoire
+    np.random.seed(42)
+    beam_1 = throughput_mbps * 0.50 + np.random.normal(0, 0.5, periods)
+    beam_2 = throughput_mbps * 0.30 + np.random.normal(0, 0.3, periods)
+    beam_3 = throughput_mbps * 0.20 + np.random.normal(0, 0.2, periods)
+    
+    # Éviter les valeurs négatives dues au bruit
+    data_dict = {
+        'beam_1': np.maximum(beam_1, 0),
+        'beam_2': np.maximum(beam_2, 0),
+        'beam_3': np.maximum(beam_3, 0)
+    }
+    
+    df = pd.DataFrame(data_dict, index=dates)
+    return df
+
+
 if __name__ == '__main__':
     print("Génération de test de 1 heure de trafic (Voie Aller, 3 Faisceaux)...")
     df = generate_fake_traffic_data(duration_hours=1, link_type='forward', num_beams=3)

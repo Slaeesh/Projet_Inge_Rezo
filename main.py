@@ -2,7 +2,7 @@ import os
 import sys
 import warnings
 
-from data_generator import generate_fake_traffic_data
+from data_generator import generate_fake_traffic_data, load_real_traffic_data
 from data_aggregator import aggregate_data
 from models.ar_model import run_ar_model
 from models.arima_model import run_arima_model
@@ -40,10 +40,29 @@ def main():
     link_choice = get_user_choice("Votre choix (1 ou 2) : ", [1, 2])
     link_type = 'forward' if link_choice == 1 else 'return'
     
-    print("\nSimulation du trafic en cours...")
+    filename = "tx_throughput.csv" if link_type == 'forward' else "rx_throughput.csv"
+    default_path = os.path.join("..", "PRED_TRAFFIC", "nb_variable_utilisateurs", "scenario1", filename)
+    
+    print(f"\nChargement des données réelles ({filename})...")
+    df = None
+    current_path = default_path
+    
+    while True:
+        try:
+            df = load_real_traffic_data(link_type, current_path)
+            print(f"[{'Voie Aller' if link_type == 'forward' else 'Voie Retour'}] Données chargées avec succès : {len(df)} lignes, 3 faisceaux.")
+            break
+        except FileNotFoundError:
+            print(f"! Erreur : Le fichier est introuvable au chemin : {current_path}")
+            current_path = input(f"Veuillez saisir le chemin absolu (ou relatif) vers le fichier {filename} : ").strip()
+        except IsADirectoryError:
+            print(f"! Erreur : Vous avez saisi le chemin d'un dossier. Vous devez indiquer le chemin jusqu'au fichier (ex: .../Data/{filename}).")
+            current_path = input(f"Veuillez saisir le chemin complet vers le fichier {filename} : ").strip()
+        except Exception as e:
+            print(f"! Erreur inattendue lors de la lecture du fichier : {e}")
+            sys.exit(1)
+            
     num_beams = 3
-    df = generate_fake_traffic_data(duration_hours=48, link_type=link_type, num_beams=num_beams)
-    print(f"[{'Voie Aller' if link_type == 'forward' else 'Voie Retour'}] Jeu de données généré : {len(df)} lignes, {num_beams} faisceaux.")
     
     # Étape 2 : Choix du Faisceau (Dimension Spatiale)
     print("\n2. Sélection du Faisceau (Dimension Spatiale)")

@@ -12,12 +12,19 @@ def plot_single_result(result: dict):
     predictions = result['predictions']
 
     plt.figure(figsize=(10, 6))
-    plt.plot(true_values, label='Série réelle', color='blue', alpha=0.7)
-    plt.plot(predictions, label=f'Prédictions ({model_name})', color='orange', linestyle='--')
+    
+    # Sécurisation de la dimension
+    true_values = np.array(true_values).flatten()
+    predictions = np.array(predictions).flatten()
+    
+    # Trace la "Série réelle" en noir, en trait plein pour l'ancrage visuel
+    plt.plot(true_values, label='Série réelle (Vérité terrain)', color='black', linewidth=2)
+    plt.plot(predictions, label=f'Prédictions ({model_name})', color='orange', linestyle='--', alpha=0.8)
     plt.title(f'Prédiction vs Réalité - {model_name}')
     plt.xlabel('Pas de temps (Test Set)')
     plt.ylabel('Trafic Agrégé (Mbps)')
     plt.legend()
+    plt.autoscale(enable=True, axis='y', tight=False)
     plt.grid(True, linestyle='--', alpha=0.5)
     
     filename = f"results/single_{model_name.replace(' ', '_').replace('/', '_')}.png"
@@ -33,17 +40,37 @@ def plot_comparison(results_list: list):
 
     # 1. Plot superposé des séries temporelles
     plt.figure(figsize=(12, 6))
-    # Ils utilisent tous le même test set (normalement)
-    true_values = results_list[0]['true_values']
-    plt.plot(true_values, label='Série réelle', color='black', linewidth=2)
+    
+    # Recherche d'un true_values non vide (au cas où le 1er modèle a échoué silencieusement)
+    true_values = np.array([])
+    for r in results_list:
+        if len(r['true_values']) > 0:
+            true_values = np.array(r['true_values']).flatten()
+            break
+            
+    # PRINT DE DÉBOGAGE OBLIGATOIRE
+    print("\n--- [DEBUG GRAPH] ---")
+    print(f"Série réelle (5 premières) : {true_values[:5] if len(true_values) > 0 else 'VIDE'}")
+    if len(results_list) > 0:
+        first_valid_preds = np.array(results_list[-1]['predictions']).flatten()
+        print(f"Prédictions du modèle {results_list[-1]['model_name']} (5 premières) : {first_valid_preds[:5]}")
+    print("---------------------\n")
+    
+    if len(true_values) > 0:
+        plt.plot(true_values, label='Série réelle (Vérité terrain)', color='black', linewidth=2)
+    else:
+        print("ATTENTION: La série réelle est complètement vide pour tous les modèles !")
     
     for res in results_list:
-        plt.plot(res['predictions'], label=res['model_name'], linestyle='--', alpha=0.8)
+        preds = np.array(res['predictions']).flatten()
+        if len(preds) > 0:
+            plt.plot(preds, label=res['model_name'], linestyle='--', alpha=0.8)
         
     plt.title('Prédiction vs Réalité - Comparaison des Modèles')
     plt.xlabel('Pas de temps (Test Set)')
     plt.ylabel('Trafic Agrégé (Mbps)')
     plt.legend()
+    plt.autoscale(axis='y')
     plt.grid(True, linestyle='--', alpha=0.5)
     plt.savefig('results/comparison_timeseries.png')
     plt.show()
