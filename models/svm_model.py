@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from sklearn.svm import SVR
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
 
 def create_sequences(data: np.ndarray, seq_length: int, horizon: int):
     xs, ys = [], []
@@ -65,6 +65,8 @@ def run_svm_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, se
     test_predictions = scaler_y.inverse_transform(test_predictions_scaled.reshape(-1, 1)).flatten()
     
     mae = mean_absolute_error(y_test, test_predictions)
+    rmse = np.sqrt(mean_squared_error(y_test, test_predictions))
+    mape = mean_absolute_percentage_error(y_test, test_predictions)
     
     # Métriques métier
     under_allocation = np.mean(test_predictions < y_test) * 100
@@ -76,6 +78,8 @@ def run_svm_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, se
         'true_values': y_test,
         'predictions': test_predictions,
         'mae': mae,
+        'rmse': rmse,
+        'mape': mape,
         'under_allocation': under_allocation,
         'over_allocation': over_allocation,
         'execution_time': execution_time

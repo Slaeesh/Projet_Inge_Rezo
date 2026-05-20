@@ -4,7 +4,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
 from sklearn.preprocessing import MinMaxScaler
 
 class GRUModel(nn.Module):
@@ -126,6 +126,8 @@ def run_nn_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, seq
     true_np = y_test # Vérité terrain déjà en Mbps
     
     mae = mean_absolute_error(true_np, pred_np)
+    rmse = np.sqrt(mean_squared_error(true_np, pred_np))
+    mape = mean_absolute_percentage_error(true_np, pred_np)
     
     # Métriques métier
     under_allocation = np.mean(pred_np < true_np) * 100
@@ -137,6 +139,8 @@ def run_nn_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, seq
         'true_values': true_np,
         'predictions': pred_np,
         'mae': mae,
+        'rmse': rmse,
+        'mape': mape,
         'under_allocation': under_allocation,
         'over_allocation': over_allocation,
         'execution_time': execution_time

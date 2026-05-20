@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import warnings
 from statsmodels.tsa.arima.model import ARIMA
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
 
 def run_arima_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, order: tuple = (5, 1, 0), horizon: int = 1):
     """
@@ -48,10 +48,12 @@ def run_arima_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, 
     
     if len(predictions) > 0:
         mae = mean_absolute_error(true_values, predictions)
+        rmse = np.sqrt(mean_squared_error(true_values, predictions))
+        mape = mean_absolute_percentage_error(true_values, predictions)
         under_allocation = np.mean(predictions < true_values) * 100
         over_allocation = np.mean(predictions > true_values) * 100
     else:
-        mae, under_allocation, over_allocation = 0.0, 0.0, 0.0
+        mae, rmse, mape, under_allocation, over_allocation = 0.0, 0.0, 0.0, 0.0, 0.0
     
     return {
         'model_name': f'ARIMA{order}',
@@ -59,6 +61,8 @@ def run_arima_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, 
         'true_values': true_values,
         'predictions': predictions,
         'mae': mae,
+        'rmse': rmse,
+        'mape': mape,
         'under_allocation': under_allocation,
         'over_allocation': over_allocation,
         'execution_time': execution_time

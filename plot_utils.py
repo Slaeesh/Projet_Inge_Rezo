@@ -94,6 +94,14 @@ def plot_comparison(results_list: list):
     plt.show()
 
     # 3. Bar chart pour le temps d'exécution
+    plot_execution_times(results_list)
+
+def plot_execution_times(results_list: list):
+    ensure_results_dir()
+    if not results_list:
+        return
+        
+    names = [r['model_name'] for r in results_list]
     times = [r['execution_time'] for r in results_list]
     
     plt.figure(figsize=(10, 5))
@@ -109,3 +117,52 @@ def plot_comparison(results_list: list):
     plt.tight_layout()
     plt.savefig('results/comparison_execution_time.png')
     plt.show()
+
+def plot_cross_link(result_tx: dict, result_rx: dict):
+    ensure_results_dir()
+    model_name = result_tx['model_name']
+    
+    plt.figure(figsize=(12, 6))
+    
+    preds_tx = np.array(result_tx['predictions']).flatten()
+    preds_rx = np.array(result_rx['predictions']).flatten()
+    
+    plt.plot(preds_tx, label='Prédictions Aller (TX - lisse)', color='blue', linestyle='-', alpha=0.8)
+    plt.plot(preds_rx, label='Prédictions Retour (RX - bruité)', color='red', linestyle='--', alpha=0.8)
+    
+    plt.title(f'Analyse Croisée Voies (Cross-Link) - {model_name}')
+    plt.xlabel('Pas de temps (Test Set)')
+    plt.ylabel('Trafic Agrégé (Mbps)')
+    plt.legend()
+    plt.autoscale(axis='y')
+    plt.grid(True, linestyle='--', alpha=0.5)
+    
+    plt.tight_layout()
+    plt.savefig('results/cross_link_analysis.png')
+    plt.show()
+
+def plot_cross_beam(results_beams: list):
+    ensure_results_dir()
+    if not results_beams:
+        return
+        
+    model_name = results_beams[0]['model_name']
+    plt.figure(figsize=(12, 6))
+    
+    colors = ['blue', 'green', 'orange']
+    for i, res in enumerate(results_beams):
+        preds = np.array(res['predictions']).flatten()
+        beam_name = res.get('beam_name', f'Beam {i+1}')
+        plt.plot(preds, label=f'{beam_name}', color=colors[i % len(colors)], alpha=0.8)
+        
+    plt.title(f'Analyse Croisée Faisceaux (Cross-Beam) - {model_name}')
+    plt.xlabel('Pas de temps (Test Set)')
+    plt.ylabel('Trafic Agrégé (Mbps)')
+    plt.legend()
+    plt.autoscale(axis='y')
+    plt.grid(True, linestyle='--', alpha=0.5)
+    
+    plt.tight_layout()
+    plt.savefig('results/cross_beam_analysis.png')
+    plt.show()
+

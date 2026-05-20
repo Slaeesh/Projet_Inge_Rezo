@@ -2,7 +2,7 @@ import time
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_absolute_percentage_error
 
 def create_sequences(data: np.ndarray, seq_length: int, horizon: int):
     xs, ys = [], []
@@ -46,6 +46,8 @@ def run_rf_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, seq
     execution_time = end_time - start_time
     
     mae = mean_absolute_error(y_test, test_predictions)
+    rmse = np.sqrt(mean_squared_error(y_test, test_predictions))
+    mape = mean_absolute_percentage_error(y_test, test_predictions)
     
     # Métriques métier
     under_allocation = np.mean(test_predictions < y_test) * 100
@@ -57,6 +59,8 @@ def run_rf_model(df: pd.DataFrame, target_col: str, train_frac: float = 0.8, seq
         'true_values': y_test,
         'predictions': test_predictions,
         'mae': mae,
+        'rmse': rmse,
+        'mape': mape,
         'under_allocation': under_allocation,
         'over_allocation': over_allocation,
         'execution_time': execution_time
