@@ -93,8 +93,54 @@ def plot_comparison(results_list: list):
     plt.savefig('results/comparison_mae.png')
     plt.show()
 
-    # 3. Bar chart pour le temps d'exécution
+    # 3. Bar chart pour la RMSE (Root Mean Squared Error)
+    rmses = [r.get('rmse', 0.0) for r in results_list]
+    plt.figure(figsize=(10, 5))
+    bars = plt.bar(names, rmses, color='salmon')
+    plt.title('Comparaison de la Root Mean Squared Error (RMSE)')
+    plt.ylabel('RMSE (Mbps)')
+    plt.xticks(rotation=45)
+    for bar in bars:
+        yval = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2, yval, round(yval, 4), va='bottom', ha='center')
+    plt.tight_layout()
+    plt.savefig('results/comparison_rmse.png')
+    plt.show()
+
+    # 4. Bar chart pour la MAPE (Mean Absolute Percentage Error)
+    mapes = [r.get('mape', 0.0) * 100 for r in results_list] # Affiché en %
+    plt.figure(figsize=(10, 5))
+    bars = plt.bar(names, mapes, color='orange')
+    plt.title('Comparaison de la Mean Absolute Percentage Error (MAPE)')
+    plt.ylabel('MAPE (%)')
+    plt.xticks(rotation=45)
+    for bar in bars:
+        yval = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2, yval, f"{yval:.2f}%", va='bottom', ha='center')
+    plt.tight_layout()
+    plt.savefig('results/comparison_mape.png')
+    plt.show()
+
+    # 5. Bar chart pour le Coefficient de Détermination R²
+    r2s = [r.get('r2', 0.0) for r in results_list]
+    plt.figure(figsize=(10, 5))
+    bars = plt.bar(names, r2s, color='orchid')
+    plt.title('Comparaison du Coefficient de Détermination (R²)')
+    plt.ylabel('R²')
+    plt.xticks(rotation=45)
+    plt.axhline(0, color='red', linestyle='--', linewidth=0.8) # Ligne de référence à 0
+    for bar in bars:
+        yval = bar.get_height()
+        plt.text(bar.get_x() + bar.get_width()/2, yval, round(yval, 4), va='bottom' if yval >= 0 else 'top', ha='center')
+    plt.tight_layout()
+    plt.savefig('results/comparison_r2.png')
+    plt.show()
+
+    # 6. Bar chart pour le temps d'exécution (existant)
     plot_execution_times(results_list)
+    
+    # 7. Dashboard de Synthèse des Métriques (Idéal pour soutenance orale)
+    plot_metrics_dashboard(results_list)
 
 def plot_execution_times(results_list: list):
     ensure_results_dir()
@@ -164,5 +210,64 @@ def plot_cross_beam(results_beams: list):
     
     plt.tight_layout()
     plt.savefig('results/cross_beam_analysis.png')
+    plt.show()
+
+def plot_metrics_dashboard(results_list: list):
+    """
+    Génère un tableau de bord 2x2 contenant les 4 métriques de performance
+    (MAE, RMSE, MAPE, R²) pour tous les modèles testés.
+    """
+    ensure_results_dir()
+    if not results_list:
+        return
+        
+    names = [r['model_name'] for r in results_list]
+    maes = [r.get('mae', 0.0) for r in results_list]
+    rmses = [r.get('rmse', 0.0) for r in results_list]
+    mapes = [r.get('mape', 0.0) * 100 for r in results_list]
+    r2s = [r.get('r2', 0.0) for r in results_list]
+    
+    fig, axs = plt.subplots(2, 2, figsize=(16, 11))
+    fig.suptitle('Dashboard de Performance des Modèles de Prédiction Satellite', fontsize=16, fontweight='bold', y=0.98)
+    
+    # 1. MAE
+    bars1 = axs[0, 0].bar(names, maes, color='skyblue')
+    axs[0, 0].set_title('Erreur Moyenne Absolue (MAE) - Mbps [Plus bas est mieux]', fontsize=11, fontweight='bold')
+    axs[0, 0].set_ylabel('MAE (Mbps)')
+    axs[0, 0].tick_params(axis='x', rotation=25)
+    for bar in bars1:
+        yval = bar.get_height()
+        axs[0, 0].text(bar.get_x() + bar.get_width()/2, yval, f"{yval:.4f}", va='bottom', ha='center', fontsize=9)
+        
+    # 2. RMSE
+    bars2 = axs[0, 1].bar(names, rmses, color='salmon')
+    axs[0, 1].set_title('Root Mean Squared Error (RMSE) - Mbps [Plus bas est mieux]', fontsize=11, fontweight='bold')
+    axs[0, 1].set_ylabel('RMSE (Mbps)')
+    axs[0, 1].tick_params(axis='x', rotation=25)
+    for bar in bars2:
+        yval = bar.get_height()
+        axs[0, 1].text(bar.get_x() + bar.get_width()/2, yval, f"{yval:.4f}", va='bottom', ha='center', fontsize=9)
+        
+    # 3. MAPE
+    bars3 = axs[1, 0].bar(names, mapes, color='orange')
+    axs[1, 0].set_title('Mean Absolute Percentage Error (MAPE) - % [Plus bas est mieux]', fontsize=11, fontweight='bold')
+    axs[1, 0].set_ylabel('MAPE (%)')
+    axs[1, 0].tick_params(axis='x', rotation=25)
+    for bar in bars3:
+        yval = bar.get_height()
+        axs[1, 0].text(bar.get_x() + bar.get_width()/2, yval, f"{yval:.2f}%", va='bottom', ha='center', fontsize=9)
+        
+    # 4. R²
+    bars4 = axs[1, 1].bar(names, r2s, color='orchid')
+    axs[1, 1].set_title('Coefficient de Détermination (R²) [Plus haut est mieux, max=1]', fontsize=11, fontweight='bold')
+    axs[1, 1].set_ylabel('R²')
+    axs[1, 1].tick_params(axis='x', rotation=25)
+    axs[1, 1].axhline(0, color='red', linestyle='--', linewidth=0.8)
+    for bar in bars4:
+        yval = bar.get_height()
+        axs[1, 1].text(bar.get_x() + bar.get_width()/2, yval, f"{yval:.4f}", va='bottom' if yval >= 0 else 'top', ha='center', fontsize=9)
+        
+    plt.tight_layout()
+    plt.savefig('results/comparison_metrics_dashboard.png', dpi=150)
     plt.show()
 

@@ -10,6 +10,40 @@ from models.nn_model import run_nn_model
 from models.rf_model import run_rf_model
 from models.svm_model import run_svm_model
 from plot_utils import plot_single_result, plot_comparison, plot_cross_link, plot_cross_beam
+import numpy as np
+
+def compute_additional_metrics(res):
+    """
+    Calcule de manière centralisée les métriques RMSE, MAPE et R² 
+    pour éviter de modifier le code de chaque modèle.
+    """
+    if not res:
+        return res
+    
+    true = np.array(res['true_values']).flatten()
+    pred = np.array(res['predictions']).flatten()
+    
+    if len(true) == 0 or len(pred) == 0:
+        res['rmse'] = 0.0
+        res['mape'] = 0.0
+        res['r2'] = 0.0
+        return res
+        
+    # 1. RMSE
+    rmse = np.sqrt(np.mean((true - pred) ** 2))
+    
+    # 2. MAPE (sécurisé contre les divisions par zéro)
+    mape = np.mean(np.abs((true - pred) / np.clip(true, 1e-5, None)))
+    
+    # 3. R² (Coefficient de détermination)
+    ss_res = np.sum((true - pred) ** 2)
+    ss_tot = np.sum((true - np.mean(true)) ** 2)
+    r2 = 1 - (ss_res / ss_tot) if ss_tot != 0 else 0.0
+    
+    res['rmse'] = rmse
+    res['mape'] = mape
+    res['r2'] = r2
+    return res
 
 def get_user_choice(prompt: str, options: list):
     while True:
@@ -166,10 +200,11 @@ def main():
             if 'rmse' in res and 'mape' in res:
                 print(f"RMSE                    : {res['rmse']:.4f} Mbps")
                 print(f"MAPE                    : {res['mape']:.2%}")
+                print(f"R² (Score)              : {res.get('r2', 0.0):.4f}")
                 
                 mape = res['mape']
                 if mape < 0.10:
-                    diag = "Prédiction très fiable (adaptée pour une allocation de ressources dynamique et agressive)."
+                    diag = "Prédiction très fiable (adaptée pour une allocation dynamique agressive)."
                 elif mape <= 0.20:
                     diag = "Prédiction acceptable (adaptée pour une allocation de sécurité macroscopique)."
                 else:
@@ -185,6 +220,7 @@ def main():
         if exec_mode == 1:
             results = run_selected_model(model_choice, dfs_agg[link_type], target_beam, seq_len, horizon)
             if results:
+                results = compute_additional_metrics(results)
                 display_single_result(results, target_beam, selected_freq)
                 plot_single_result(results)
                 
@@ -213,8 +249,10 @@ def main():
             print("[6/6] Exécution du Modèle LSTM...")
             try: all_results.append(run_nn_model(dfs_agg[link_type], target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon, epochs=50, model_type='lstm'))
             except Exception as e: print(f"  -> Erreur LSTM : {e}")
-
+ 
             if all_results:
+                # Filtrer les None et calculer les métriques additionnelles
+                all_results = [compute_additional_metrics(res) for res in all_results if res is not None]
                 print(f"\nTerminé ! {len(all_results)} modèles testés avec succès.")
                 print("Génération et affichage des graphiques...")
                 plot_comparison(all_results)
@@ -226,11 +264,13 @@ def main():
             print("\nExécution sur la Voie Aller (TX)...")
             res_tx = run_selected_model(model_choice, dfs_agg['forward'], target_beam, seq_len, horizon)
             if res_tx:
+                res_tx = compute_additional_metrics(res_tx)
                 display_single_result(res_tx, target_beam + " (Aller)", selected_freq)
             
             print("\nExécution sur la Voie Retour (RX)...")
             res_rx = run_selected_model(model_choice, dfs_agg['return'], target_beam, seq_len, horizon)
             if res_rx:
+                res_rx = compute_additional_metrics(res_rx)
                 display_single_result(res_rx, target_beam + " (Retour)", selected_freq)
                 
             if res_tx and res_rx:
@@ -244,6 +284,7 @@ def main():
                 print(f"\nExécution sur le {beam}...")
                 res = run_selected_model(model_choice, dfs_agg[link_type], beam, seq_len, horizon)
                 if res:
+                    res = compute_additional_metrics(res)
                     res['beam_name'] = f'Beam {b}'
                     display_single_result(res, beam, selected_freq)
                     results_beams.append(res)
