@@ -121,11 +121,19 @@ def main():
         beam_choice = get_user_choice(f"Quel faisceau cibler ? {options_beams} : ", options_beams)
         target_beam = f'beam_{beam_choice}'
     
+    # Étape 2.bis : Choix du Scénario (Dataset)
+    print("\n2.bis Sélection du Scénario de Données")
+    print("  Scénarios disponibles (nb_variable_utilisateurs) :")
+    for s in range(1, 7):
+        print(f"  {s} - Scénario {s}")
+    scenario_choice = get_user_choice("Quel scénario charger ? (1 à 6) : ", list(range(1, 7)))
+    selected_scenario = f"scenario{scenario_choice}"
+    
     # Chargement des données
     def load_and_agg(l_type, current_path=None):
         filename = "tx_throughput.csv" if l_type == 'forward' else "rx_throughput.csv"
         if current_path is None:
-            current_path = os.path.join("..", "PRED_TRAFFIC", "nb_variable_utilisateurs", "scenario1", filename)
+            current_path = os.path.join("..", "PRED_TRAFFIC", "nb_variable_utilisateurs", selected_scenario, filename)
         
         print(f"\nChargement des données ({filename})...")
         while True:
