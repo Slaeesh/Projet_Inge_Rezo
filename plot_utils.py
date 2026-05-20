@@ -212,6 +212,110 @@ def plot_cross_beam(results_beams: list):
     plt.savefig('results/cross_beam_analysis.png')
     plt.show()
 
+def plot_monte_carlo(mc_results: dict):
+    """
+    Génère des boîtes à moustaches (Boxplots) comparatives pour l'analyse Monte Carlo
+    sur les métriques MAE, RMSE, MAPE et R² de manière rétro-compatible.
+    """
+    ensure_results_dir()
+    
+    # Extraire uniquement les modèles ayant des résultats
+    active_models = [name for name, metrics in mc_results.items() if len(metrics['mae']) > 0]
+    if not active_models:
+        print("Aucun résultat disponible pour tracer l'analyse Monte Carlo.")
+        return
+        
+    mae_data = [mc_results[name]['mae'] for name in active_models]
+    rmse_data = [mc_results[name]['rmse'] for name in active_models]
+    mape_data = [[v * 100 for v in mc_results[name]['mape']] for name in active_models] # En %
+    r2_data = [mc_results[name]['r2'] for name in active_models]
+    
+    # 1. Boxplot MAE
+    plt.figure(figsize=(11, 6))
+    plt.boxplot(mae_data)
+    plt.title("Distribution de l'Erreur Moyenne Absolue (MAE) - Monte Carlo", fontsize=12, fontweight='bold')
+    plt.ylabel("MAE (Mbps)")
+    plt.xticks(range(1, len(active_models) + 1), active_models, rotation=25)
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.savefig('results/montecarlo_mae.png', dpi=150)
+    plt.show()
+
+    # 2. Boxplot RMSE
+    plt.figure(figsize=(11, 6))
+    plt.boxplot(rmse_data)
+    plt.title("Distribution de la Root Mean Squared Error (RMSE) - Monte Carlo", fontsize=12, fontweight='bold')
+    plt.ylabel("RMSE (Mbps)")
+    plt.xticks(range(1, len(active_models) + 1), active_models, rotation=25)
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.savefig('results/montecarlo_rmse.png', dpi=150)
+    plt.show()
+
+    # 3. Boxplot MAPE
+    plt.figure(figsize=(11, 6))
+    plt.boxplot(mape_data)
+    plt.title("Distribution de la Mean Absolute Percentage Error (MAPE) - Monte Carlo", fontsize=12, fontweight='bold')
+    plt.ylabel("MAPE (%)")
+    plt.xticks(range(1, len(active_models) + 1), active_models, rotation=25)
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.savefig('results/montecarlo_mape.png', dpi=150)
+    plt.show()
+
+    # 4. Boxplot R²
+    plt.figure(figsize=(11, 6))
+    plt.boxplot(r2_data)
+    plt.title("Distribution du Coefficient de Détermination (R²) - Monte Carlo", fontsize=12, fontweight='bold')
+    plt.ylabel("R²")
+    plt.xticks(range(1, len(active_models) + 1), active_models, rotation=25)
+    plt.axhline(0, color='red', linestyle='--', linewidth=0.8)
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.savefig('results/montecarlo_r2.png', dpi=150)
+    plt.show()
+    
+    # 5. Dashboard Global Monte Carlo (2x2 Boxplots)
+    fig, axs = plt.subplots(2, 2, figsize=(16, 11))
+    fig.suptitle("Tableau de Bord Monte Carlo - Robustesse de la Prédiction Satellite", fontsize=16, fontweight='bold', y=0.98)
+    
+    # MAE
+    axs[0, 0].boxplot(mae_data)
+    axs[0, 0].set_title("Distribution de la MAE (Mbps)", fontsize=11, fontweight='bold')
+    axs[0, 0].set_ylabel("MAE (Mbps)")
+    axs[0, 0].set_xticks(range(1, len(active_models) + 1))
+    axs[0, 0].set_xticklabels(active_models, rotation=20)
+    axs[0, 0].grid(True, linestyle='--', alpha=0.5)
+    
+    # RMSE
+    axs[0, 1].boxplot(rmse_data)
+    axs[0, 1].set_title("Distribution de la RMSE (Mbps)", fontsize=11, fontweight='bold')
+    axs[0, 1].set_ylabel("RMSE (Mbps)")
+    axs[0, 1].set_xticks(range(1, len(active_models) + 1))
+    axs[0, 1].set_xticklabels(active_models, rotation=20)
+    axs[0, 1].grid(True, linestyle='--', alpha=0.5)
+    
+    # MAPE
+    axs[1, 0].boxplot(mape_data)
+    axs[1, 0].set_title("Distribution de la MAPE (%)", fontsize=11, fontweight='bold')
+    axs[1, 0].set_ylabel("MAPE (%)")
+    axs[1, 0].set_xticks(range(1, len(active_models) + 1))
+    axs[1, 0].set_xticklabels(active_models, rotation=20)
+    axs[1, 0].grid(True, linestyle='--', alpha=0.5)
+    
+    # R2
+    axs[1, 1].boxplot(r2_data)
+    axs[1, 1].set_title("Distribution du R²", fontsize=11, fontweight='bold')
+    axs[1, 1].set_ylabel("R²")
+    axs[1, 1].set_xticks(range(1, len(active_models) + 1))
+    axs[1, 1].set_xticklabels(active_models, rotation=20)
+    axs[1, 1].axhline(0, color='red', linestyle='--', linewidth=0.8)
+    axs[1, 1].grid(True, linestyle='--', alpha=0.5)
+    
+    plt.tight_layout()
+    plt.savefig('results/montecarlo_dashboard.png', dpi=150)
+    plt.show()
+
 def plot_metrics_dashboard(results_list: list):
     """
     Génère un tableau de bord 2x2 contenant les 4 métriques de performance

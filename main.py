@@ -9,7 +9,7 @@ from models.arima_model import run_arima_model
 from models.nn_model import run_nn_model
 from models.rf_model import run_rf_model
 from models.svm_model import run_svm_model
-from plot_utils import plot_single_result, plot_comparison, plot_cross_link, plot_cross_beam
+from plot_utils import plot_single_result, plot_comparison, plot_cross_link, plot_cross_beam, plot_monte_carlo
 import numpy as np
 
 def compute_additional_metrics(res):
@@ -92,7 +92,8 @@ def main():
     print("  2 - Comparaison Globale (Couverture de tous les modèles avec graphiques multiples)")
     print("  3 - Analyse Croisée Voies (Cross-Link : TX vs RX sur 1 faisceau avec 1 modèle)")
     print("  4 - Analyse Croisée Faisceaux (Cross-Beam : 3 faisceaux simultanés sur 1 voie avec 1 modèle)")
-    exec_mode = get_user_choice("Votre choix (1 à 4) : ", [1, 2, 3, 4])
+    print("  5 - Analyse Monte Carlo (Évaluation de la robustesse stochastique en N runs)")
+    exec_mode = get_user_choice("Votre choix (1 à 5) : ", [1, 2, 3, 4, 5])
     
     # Configuration en fonction du mode
     link_type = None
@@ -299,6 +300,128 @@ def main():
             
             if results_beams:
                 plot_cross_beam(results_beams)
+                
+        elif exec_mode == 5:
+            # Mode Monte Carlo
+            print("\n5. Configuration de l'Analyse Monte Carlo")
+            num_runs = get_user_choice("Combien de simulations Monte Carlo effectuer ? (Recommandé: 10 à 50) : ", list(range(2, 200)))
+            
+            # Saisie simplifiée du niveau de bruit
+            print("\nNiveau de perturbation (bruit gaussien) :")
+            print("  1 - Faible (2 % de l'écart-type)")
+            print("  2 - Moyen (5 % de l'écart-type)")
+            print("  3 - Élevé (10 % de l'écart-type)")
+            noise_choice = get_user_choice("Votre choix (1, 2 ou 3) : ", [1, 2, 3])
+            noise_map = {1: 0.02, 2: 0.05, 3: 0.10}
+            noise_pct = noise_map[noise_choice]
+            
+            # Alerte si grand dataset
+            num_points = len(dfs_agg[link_type])
+            if num_points > 500 and num_runs > 10:
+                print(f"\n⚠️ ATTENTION : Le dataset contient {num_points} points.")
+                print(f"L'exécution de {num_runs} simulations avec les modèles LSTM/GRU risque de prendre plusieurs minutes.")
+                confirm = input("Voulez-vous continuer ? (o/n) : ").strip().lower()
+                if confirm != 'o':
+                    num_runs = get_user_choice("Entrez un nombre de runs réduit (ex: 5) : ", list(range(2, 100)))
+            
+            print(f"\nLancement de la simulation de Monte Carlo ({num_runs} exécutions)...")
+            
+            mc_results = {
+                'AR/MA': {'mae': [], 'rmse': [], 'mape': [], 'r2': []},
+                'ARIMA': {'mae': [], 'rmse': [], 'mape': [], 'r2': []},
+                'Random Forest': {'mae': [], 'rmse': [], 'mape': [], 'r2': []},
+                'SVM': {'mae': [], 'rmse': [], 'mape': [], 'r2': []},
+                'GRU PyTorch': {'mae': [], 'rmse': [], 'mape': [], 'r2': []},
+                'LSTM PyTorch': {'mae': [], 'rmse': [], 'mape': [], 'r2': []}
+            }
+            
+            base_df = dfs_agg[link_type]
+            std_val = base_df[target_beam].std()
+            
+            for run in range(1, num_runs + 1):
+                print(f"\n--- Simulation Monte Carlo {run}/{num_runs} ---")
+                
+                # Génération du bruit gaussien
+                perturbed_df = base_df.copy()
+                np.random.seed(run)
+                noise = np.random.normal(0, std_val * noise_pct, size=len(base_df))
+                perturbed_df[target_beam] = np.maximum(perturbed_df[target_beam] + noise, 0)
+                
+                # 1. AR/MA
+                try:
+                    res = run_ar_model(perturbed_df, target_col=target_beam, train_frac=0.8, lags=10, horizon=horizon)
+                    res = compute_additional_metrics(res)
+                    mc_results['AR/MA']['mae'].append(res['mae'])
+                    mc_results['AR/MA']['rmse'].append(res['rmse'])
+                    mc_results['AR/MA']['mape'].append(res['mape'])
+                    mc_results['AR/MA']['r2'].append(res['r2'])
+                except Exception as e: print(f"  -> Erreur AR : {e}")
+                
+                # 2. ARIMA
+                try:
+                    res = run_arima_model(perturbed_df, target_col=target_beam, train_frac=0.8, order=(5, 1, 0), horizon=horizon)
+                    res = compute_additional_metrics(res)
+                    mc_results['ARIMA']['mae'].append(res['mae'])
+                    mc_results['ARIMA']['rmse'].append(res['rmse'])
+                    mc_results['ARIMA']['mape'].append(res['mape'])
+                    mc_results['ARIMA']['r2'].append(res['r2'])
+                except Exception as e: print(f"  -> Erreur ARIMA : {e}")
+                
+                # 3. RF
+                try:
+                    res = run_rf_model(perturbed_df, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon)
+                    res = compute_additional_metrics(res)
+                    mc_results['Random Forest']['mae'].append(res['mae'])
+                    mc_results['Random Forest']['rmse'].append(res['rmse'])
+                    mc_results['Random Forest']['mape'].append(res['mape'])
+                    mc_results['Random Forest']['r2'].append(res['r2'])
+                except Exception as e: print(f"  -> Erreur RF : {e}")
+                
+                # 4. SVM
+                try:
+                    res = run_svm_model(perturbed_df, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon)
+                    res = compute_additional_metrics(res)
+                    mc_results['SVM']['mae'].append(res['mae'])
+                    mc_results['SVM']['rmse'].append(res['rmse'])
+                    mc_results['SVM']['mape'].append(res['mape'])
+                    mc_results['SVM']['r2'].append(res['r2'])
+                except Exception as e: print(f"  -> Erreur SVM : {e}")
+                
+                # 5. GRU
+                try:
+                    res = run_nn_model(perturbed_df, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon, epochs=50, model_type='gru')
+                    res = compute_additional_metrics(res)
+                    mc_results['GRU PyTorch']['mae'].append(res['mae'])
+                    mc_results['GRU PyTorch']['rmse'].append(res['rmse'])
+                    mc_results['GRU PyTorch']['mape'].append(res['mape'])
+                    mc_results['GRU PyTorch']['r2'].append(res['r2'])
+                except Exception as e: print(f"  -> Erreur GRU : {e}")
+                
+                # 6. LSTM
+                try:
+                    res = run_nn_model(perturbed_df, target_col=target_beam, train_frac=0.8, seq_length=seq_len, horizon=horizon, epochs=50, model_type='lstm')
+                    res = compute_additional_metrics(res)
+                    mc_results['LSTM PyTorch']['mae'].append(res['mae'])
+                    mc_results['LSTM PyTorch']['rmse'].append(res['rmse'])
+                    mc_results['LSTM PyTorch']['mape'].append(res['mape'])
+                    mc_results['LSTM PyTorch']['r2'].append(res['r2'])
+                except Exception as e: print(f"  -> Erreur LSTM : {e}")
+                
+            # Affichage de la synthèse statistique
+            print("\n" + "=" * 60)
+            print("       SYNTHÈSE STATISTIQUE DES SIMULATIONS MONTE CARLO       ")
+            print("=" * 60)
+            for model_name, metrics in mc_results.items():
+                if len(metrics['mae']) > 0:
+                    print(f"\nModèle : {model_name}")
+                    print(f"  MAE  : Moyenne = {np.mean(metrics['mae']):.4f} Mbps, Écart-Type = {np.std(metrics['mae']):.4f}")
+                    print(f"  RMSE : Moyenne = {np.mean(metrics['rmse']):.4f} Mbps, Écart-Type = {np.std(metrics['rmse']):.4f}")
+                    print(f"  MAPE : Moyenne = {np.mean(metrics['mape'])*100:.2f} %, Écart-Type = {np.std(metrics['mape'])*100:.2f} %")
+                    print(f"  R²   : Moyenne = {np.mean(metrics['r2']):.4f}, Écart-Type = {np.std(metrics['r2']):.4f}")
+            print("=" * 60)
+            
+            # Génération des graphiques Boxplot
+            plot_monte_carlo(mc_results)
                 
     except Exception as e:
         print(f"\nUne erreur est survenue lors de l'exécution : {e}")
