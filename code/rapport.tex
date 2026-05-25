@@ -468,16 +468,16 @@ Les algorithmes Random Forest et SVR montrent la plus faible dispersion d'erreur
 \subsection{Synthèse Globale : Recherche Exhaustive (Mode 6)}
 Pour répondre à l'enjeu opérationnel d'identifier le meilleur algorithme prédictif selon chaque contexte, nous exploitons la recherche exhaustive stochastique (\textbf{Mode 6}). Cette dernière calcule les performances de tous les modèles sur les 36 configurations physiques résultant du produit cartésien : Voies (TX/RX) $\times$ Fréquences (1s/1min/10min) $\times$ Faisceaux (1/2/3) $\times$ Horizons (1/5).
 
-La figure \ref{fig:exhaustive_benchmark} présente les résultats globaux sous forme d'une carte de chaleur (heatmap) des scores $R^2$ moyens (moyennés sur les trois faisceaux) ainsi qu'un classement par nombre de configurations remportées (plus basse MAE).
+La figure \ref{fig:exhaustive_benchmark} présente les résultats globaux sous forme d'une carte de chaleur (heatmap) des erreurs MAPE moyennes (moyennées sur les trois faisceaux) ainsi qu'un classement par nombre de configurations remportées (plus basse MAE).
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{results/exhaustive_benchmark.png}
-    \caption{Résultats globaux du benchmark exhaustif (Mode 6) : Heatmap des R² moyens et barplot des victoires par modèle.}
+    \caption{Résultats globaux du benchmark exhaustif (Mode 6) : Heatmap des MAPE moyennes (\%) et barplot des victoires par modèle.}
     \label{fig:exhaustive_benchmark}
 \end{figure}
 
-\subsubsection{Analyse Opérationnelle par Cas d'Usage et Justification des Scores $R^2$}
+\subsubsection{Analyse Opérationnelle par Cas d'Usage et Justification des Métriques}
 Les résultats du benchmark exhaustif (figure \ref{fig:exhaustive_benchmark}) mettent en lumière plusieurs comportements clés et permettent de dresser des règles de décision claires pour l'opérateur satellite.
 
 \paragraph{Pourquoi les scores $R^2$ sont-ils faibles ou négatifs ?}
