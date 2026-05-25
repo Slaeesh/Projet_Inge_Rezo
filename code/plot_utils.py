@@ -377,9 +377,11 @@ def plot_metrics_dashboard(results_list: list):
 
 def plot_exhaustive_benchmark(results_list: list):
     """
-    Génère les graphiques de synthèse pour le benchmark exhaustif (Mode 6) :
-    1. Une heatmap des scores R² moyens par modèle et par groupe de configuration.
-    2. Un barplot montrant le nombre de fois où chaque modèle a obtenu la plus petite MAE.
+    Génère le tableau de bord de synthèse du benchmark exhaustif (Mode 6) :
+    1. Heatmap du score R² moyen.
+    2. Heatmap de la MAPE moyenne (%).
+    3. Barplot du nombre de configurations remportées.
+    4. Barplot du temps moyen d'exécution par run.
     """
     ensure_results_dir()
     if not results_list:
@@ -391,7 +393,6 @@ def plot_exhaustive_benchmark(results_list: list):
     
     # 1. Calcul du nombre de configurations remportées (Win Count)
     win_counts = {m: 0 for m in df['model_name'].unique()}
-    
     group_cols = ['link_type', 'freq', 'beam_name', 'horizon']
     has_scenario = 'scenario' in df.columns
     if has_scenario:
@@ -404,67 +405,105 @@ def plot_exhaustive_benchmark(results_list: list):
         best_row = g_df.loc[g_df['mae'].idxmin()]
         win_counts[best_row['model_name']] += 1
         
-    # 2. Préparation de la Heatmap des R² (moyennée sur les faisceaux et scénarios pour rester lisible)
+    # 2. Préparation des données pour les Heatmaps
     df['link_short'] = df['link_type'].apply(lambda x: 'TX' if x == 'forward' else 'RX')
     df['config_group'] = df['link_short'] + '_' + df['freq'] + '_H' + df['horizon'].astype(str)
     
     config_groups = sorted(df['config_group'].unique())
     models = sorted(df['model_name'].unique())
     
-    heatmap_data = np.zeros((len(models), len(config_groups)))
+    r2_heatmap_data = np.zeros((len(models), len(config_groups)))
+    mape_heatmap_data = np.zeros((len(models), len(config_groups)))
+    
     for i, m in enumerate(models):
         for j, cg in enumerate(config_groups):
             subset = df[(df['model_name'] == m) & (df['config_group'] == cg)]
             if not subset.empty:
-                heatmap_data[i, j] = subset['r2'].mean()
+                r2_heatmap_data[i, j] = subset['r2'].mean()
+                mape_heatmap_data[i, j] = subset['mape'].mean() * 100
             else:
-                heatmap_data[i, j] = np.nan
+                r2_heatmap_data[i, j] = np.nan
+                mape_heatmap_data[i, j] = np.nan
                 
-    # Tracé
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 9))
+    # 3. Calcul des temps d'exécution moyens
+    mean_times = df.groupby('model_name')['execution_time'].mean().to_dict()
     
-    # 2.1 Heatmap R²
-    im = ax1.imshow(heatmap_data, cmap='RdYlGn', aspect='auto', vmin=-0.2, vmax=1.0)
-    ax1.set_title("Heatmap du Score R² Moyen par Configuration (Moyenne Faisceaux & Scénarios)", fontsize=13, fontweight='bold', pad=15)
-    ax1.set_yticks(range(len(models)))
-    ax1.set_yticklabels(models, fontsize=10, fontweight='bold')
-    ax1.set_xticks(range(len(config_groups)))
-    ax1.set_xticklabels(config_groups, rotation=45, ha='right', fontsize=9)
-    ax1.set_xlabel("Configurations (Voie_Fréquence_Horizon)", fontsize=11, labelpad=10)
+    # Tracé (Grille 2x2)
+    fig, axs = plt.subplots(2, 2, figsize=(22, 16))
     
-    # Affichage des valeurs textuelles
+    # --- SUBPLOT 1: Heatmap R² (Top-Left) ---
+    im1 = axs[0, 0].imshow(r2_heatmap_data, cmap='RdYlGn', aspect='auto', vmin=-0.2, vmax=1.0)
+    axs[0, 0].set_title("1. Heatmap du Score R² Moyen par Configuration (Moyenne Beams/Scénarios)", fontsize=13, fontweight='bold', pad=12)
+    axs[0, 0].set_yticks(range(len(models)))
+    axs[0, 0].set_yticklabels(models, fontsize=10, fontweight='bold')
+    axs[0, 0].set_xticks(range(len(config_groups)))
+    axs[0, 0].set_xticklabels(config_groups, rotation=35, ha='right', fontsize=9)
+    axs[0, 0].set_xlabel("Configurations (Voie_Fréquence_Horizon)", fontsize=11, labelpad=8)
+    
     for i in range(len(models)):
         for j in range(len(config_groups)):
-            val = heatmap_data[i, j]
+            val = r2_heatmap_data[i, j]
             if not np.isnan(val):
                 text_color = "black" if val > 0.4 else "white"
-                ax1.text(j, i, f"{val:.2f}", ha="center", va="center", color=text_color, fontsize=10, fontweight='bold')
-                
-    fig.colorbar(im, ax=ax1, label="Coefficient de Détermination R²")
+                axs[0, 0].text(j, i, f"{val:.2f}", ha="center", va="center", color=text_color, fontsize=10, fontweight='bold')
+    fig.colorbar(im1, ax=axs[0, 0], label="Coefficient de Détermination R²")
     
-    # 2.2 Win Count Barplot
-    model_names = list(win_counts.keys())
-    counts = list(win_counts.values())
+    # --- SUBPLOT 2: Heatmap MAPE (Top-Right) ---
+    im2 = axs[0, 1].imshow(mape_heatmap_data, cmap='RdYlGn_r', aspect='auto', vmin=0.0, vmax=30.0)
+    axs[0, 1].set_title("2. Heatmap de la MAPE Moyenne (%) par Configuration (Moyenne Beams/Scénarios)", fontsize=13, fontweight='bold', pad=12)
+    axs[0, 1].set_yticks(range(len(models)))
+    axs[0, 1].set_yticklabels(models, fontsize=10, fontweight='bold')
+    axs[0, 1].set_xticks(range(len(config_groups)))
+    axs[0, 1].set_xticklabels(config_groups, rotation=35, ha='right', fontsize=9)
+    axs[0, 1].set_xlabel("Configurations (Voie_Fréquence_Horizon)", fontsize=11, labelpad=8)
     
-    # Tri décroissant
-    sorted_indices = np.argsort(counts)[::-1]
-    model_names = [model_names[idx] for idx in sorted_indices]
-    counts = [counts[idx] for idx in sorted_indices]
+    for i in range(len(models)):
+        for j in range(len(config_groups)):
+            val = mape_heatmap_data[i, j]
+            if not np.isnan(val):
+                text_color = "black" if val < 15.0 else "white"
+                axs[0, 1].text(j, i, f"{val:.1f}%", ha="center", va="center", color=text_color, fontsize=10, fontweight='bold')
+    fig.colorbar(im2, ax=axs[0, 1], label="Erreur Absolue Moyenne en Pourcentage (MAPE %)")
     
-    bars = ax2.bar(model_names, counts, color='teal', edgecolor='black', alpha=0.85)
-    ax2.set_title("Nombre de Configurations Remportées (Plus petite MAE)", fontsize=13, fontweight='bold', pad=15)
-    ax2.set_ylabel(f"Nombre de victoires (Total {total_victories})", fontsize=11)
-    ax2.set_xticks(range(len(model_names)))
-    ax2.set_xticklabels(model_names, rotation=35, ha='right', fontsize=10, fontweight='bold')
-    ax2.grid(axis='y', linestyle='--', alpha=0.7)
+    # --- SUBPLOT 3: Win Count Barplot (Bottom-Left) ---
+    model_names_win = list(win_counts.keys())
+    counts_win = list(win_counts.values())
+    sorted_win_idx = np.argsort(counts_win)[::-1]
+    model_names_win = [model_names_win[idx] for idx in sorted_win_idx]
+    counts_win = [counts_win[idx] for idx in sorted_win_idx]
     
-    for bar in bars:
+    bars_win = axs[1, 0].bar(model_names_win, counts_win, color='teal', edgecolor='black', alpha=0.85)
+    axs[1, 0].set_title("3. Nombre de Configurations Remportées (Plus petite MAE)", fontsize=13, fontweight='bold', pad=12)
+    axs[1, 0].set_ylabel(f"Nombre de victoires (Total {total_victories})", fontsize=11)
+    axs[1, 0].set_xticks(range(len(model_names_win)))
+    axs[1, 0].set_xticklabels(model_names_win, rotation=25, ha='right', fontsize=10, fontweight='bold')
+    axs[1, 0].grid(axis='y', linestyle='--', alpha=0.7)
+    
+    for bar in bars_win:
         yval = bar.get_height()
-        ax2.text(bar.get_x() + bar.get_width()/2, yval + 0.3, str(int(yval)), va='bottom', ha='center', fontsize=11, fontweight='bold')
+        axs[1, 0].text(bar.get_x() + bar.get_width()/2, yval + (total_victories * 0.01), str(int(yval)), va='bottom', ha='center', fontsize=11, fontweight='bold')
+        
+    # --- SUBPLOT 4: Execution Times Comparison (Bottom-Right) ---
+    model_names_time = list(mean_times.keys())
+    times = list(mean_times.values())
+    sorted_time_idx = np.argsort(times) # Tri croissant
+    model_names_time = [model_names_time[idx] for idx in sorted_time_idx]
+    times = [times[idx] for idx in sorted_time_idx]
+    
+    bars_time = axs[1, 1].bar(model_names_time, times, color='coral', edgecolor='black', alpha=0.85)
+    axs[1, 1].set_title("4. Temps d'Exécution Moyen par Run (Entraînement + Inférence)", fontsize=13, fontweight='bold', pad=12)
+    axs[1, 1].set_ylabel("Temps moyen (secondes)", fontsize=11)
+    axs[1, 1].set_xticks(range(len(model_names_time)))
+    axs[1, 1].set_xticklabels(model_names_time, rotation=25, ha='right', fontsize=10, fontweight='bold')
+    axs[1, 1].grid(axis='y', linestyle='--', alpha=0.7)
+    
+    for bar in bars_time:
+        yval = bar.get_height()
+        axs[1, 1].text(bar.get_x() + bar.get_width()/2, yval + (max(times) * 0.01), f"{yval:.4f}s", va='bottom', ha='center', fontsize=11, fontweight='bold')
         
     plt.tight_layout()
     plt.savefig('results/exhaustive_benchmark.png', dpi=150)
-    ax1.figure.canvas.draw()
+    axs[0, 0].figure.canvas.draw()
     plt.close(fig)
     print("Graphique de synthèse exhaustif sauvegardé dans 'results/exhaustive_benchmark.png'.")
 
