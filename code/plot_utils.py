@@ -398,7 +398,7 @@ def plot_exhaustive_benchmark(results_list: list):
         best_row = g_df.loc[g_df['mae'].idxmin()]
         win_counts[best_row['model_name']] += 1
         
-    # 2. Préparation de la Heatmap des R² (moyennée sur les faisceaux pour rester lisible)
+    # 2. Préparation de la Heatmap de la MAPE (moyennée sur les faisceaux pour rester lisible)
     df['link_short'] = df['link_type'].apply(lambda x: 'TX' if x == 'forward' else 'RX')
     df['config_group'] = df['link_short'] + '_' + df['freq'] + '_H' + df['horizon'].astype(str)
     
@@ -410,16 +410,17 @@ def plot_exhaustive_benchmark(results_list: list):
         for j, cg in enumerate(config_groups):
             subset = df[(df['model_name'] == m) & (df['config_group'] == cg)]
             if not subset.empty:
-                heatmap_data[i, j] = subset['r2'].mean()
+                # MAPE en pourcentage (%)
+                heatmap_data[i, j] = subset['mape'].mean() * 100
             else:
                 heatmap_data[i, j] = np.nan
                 
     # Tracé
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 9))
     
-    # 2.1 Heatmap R²
-    im = ax1.imshow(heatmap_data, cmap='RdYlGn', aspect='auto', vmin=-0.2, vmax=1.0)
-    ax1.set_title("Heatmap du Score R² Moyen par Configuration (Moyenne Faisceaux)", fontsize=13, fontweight='bold', pad=15)
+    # 2.1 Heatmap MAPE (Plus bas est mieux, donc colormap inversée 'RdYlGn_r')
+    im = ax1.imshow(heatmap_data, cmap='RdYlGn_r', aspect='auto', vmin=0.0, vmax=30.0)
+    ax1.set_title("Heatmap de la MAPE Moyenne (%) par Configuration (Moyenne Faisceaux)", fontsize=13, fontweight='bold', pad=15)
     ax1.set_yticks(range(len(models)))
     ax1.set_yticklabels(models, fontsize=10, fontweight='bold')
     ax1.set_xticks(range(len(config_groups)))
@@ -431,10 +432,10 @@ def plot_exhaustive_benchmark(results_list: list):
         for j in range(len(config_groups)):
             val = heatmap_data[i, j]
             if not np.isnan(val):
-                text_color = "black" if val > 0.4 else "white"
-                ax1.text(j, i, f"{val:.2f}", ha="center", va="center", color=text_color, fontsize=10, fontweight='bold')
+                text_color = "black" if val < 15.0 else "white"
+                ax1.text(j, i, f"{val:.1f}%", ha="center", va="center", color=text_color, fontsize=10, fontweight='bold')
                 
-    fig.colorbar(im, ax=ax1, label="Coefficient de Détermination R²")
+    fig.colorbar(im, ax=ax1, label="Erreur Moyenne en Pourcentage (MAPE %)")
     
     # 2.2 Win Count Barplot
     model_names = list(win_counts.keys())
