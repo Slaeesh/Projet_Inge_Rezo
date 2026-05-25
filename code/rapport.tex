@@ -466,14 +466,14 @@ Les modèles LSTM et GRU maintiennent une MAE médiane très basse (~0.42 Mbps),
 Les algorithmes Random Forest et SVR montrent la plus faible dispersion d'erreur (boîtes à moustaches très resserrées, aucune valeur extrême). En moyennant les prédictions d'arbres indépendants, la forêt aléatoire lisse le bruit de mesure. De même, la zone $\epsilon$-insensible de la SVR filtre naturellement les petites perturbations d'entrée qui n'influencent pas la position des vecteurs de support.
 
 \subsection{Synthèse Globale : Recherche Exhaustive (Mode 6)}
-Pour répondre à l'enjeu opérationnel d'identifier le meilleur algorithme prédictif selon chaque contexte, nous exploitons la recherche exhaustive stochastique (\textbf{Mode 6}). Cette dernière calcule les performances de tous les modèles sur les 36 configurations physiques résultant du produit cartésien : Voies (TX/RX) $\times$ Fréquences (1s/1min/10min) $\times$ Faisceaux (1/2/3) $\times$ Horizons (1/5).
+Pour répondre à l'enjeu opérationnel d'identifier le meilleur algorithme prédictif selon chaque contexte, nous exploitons la recherche exhaustive stochastique (\textbf{Mode 6}). Cette dernière calcule les performances de tous les modèles sur les 36 configurations physiques résultant du produit cartésien : Voies (TX/RX) $\times$ Fréquences (1s/1min/10min) $\times$ Faisceaux (1/2/3) $\times$ Horizons (1/5), et ce sur l'ensemble des 6 scénarios de charge utilisateur (soit 1296 runs au total).
 
-La figure \ref{fig:exhaustive_benchmark} présente les résultats globaux sous forme d'une carte de chaleur (heatmap) des erreurs MAPE moyennes (moyennées sur les trois faisceaux) ainsi qu'un classement par nombre de configurations remportées (plus basse MAE).
+La figure \ref{fig:exhaustive_benchmark} présente les résultats globaux sous forme d'une carte de chaleur (heatmap) des scores $R^2$ moyens (moyennés sur les trois faisceaux et les six scénarios) ainsi qu'un classement par nombre de configurations remportées (plus basse MAE sur les 216 combinaisons scénario-physiques).
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.95\textwidth]{results/exhaustive_benchmark.png}
-    \caption{Résultats globaux du benchmark exhaustif (Mode 6) : Heatmap des MAPE moyennes (\%) et barplot des victoires par modèle.}
+    \caption{Résultats globaux du benchmark exhaustif (Mode 6) : Heatmap des $R^2$ moyens (tous faisceaux et scénarios confondus) et barplot des victoires par modèle.}
     \label{fig:exhaustive_benchmark}
 \end{figure}
 

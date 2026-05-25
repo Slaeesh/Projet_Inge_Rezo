@@ -123,21 +123,24 @@ def main():
         beam_choice = get_user_choice(f"Quel faisceau cibler ? {options_beams} : ", options_beams)
         target_beam = f'beam_{beam_choice}'
     
-    # Étape 2.bis : Choix du Scénario (Dataset)
-    print("\n2.bis Sélection du Scénario de Données")
-    print("  Scénarios disponibles (nb_variable_utilisateurs) :")
-    for s in range(1, 7):
-        print(f"  {s} - Scénario {s}")
-    scenario_choice = get_user_choice("Quel scénario charger ? (1 à 6) : ", list(range(1, 7)))
-    selected_scenario = f"scenario{scenario_choice}"
+    selected_scenario = None
+    if exec_mode != 6:
+        # Étape 2.bis : Choix du Scénario (Dataset)
+        print("\n2.bis Sélection du Scénario de Données")
+        print("  Scénarios disponibles (nb_variable_utilisateurs) :")
+        for s in range(1, 7):
+            print(f"  {s} - Scénario {s}")
+        scenario_choice = get_user_choice("Quel scénario charger ? (1 à 6) : ", list(range(1, 7)))
+        selected_scenario = f"scenario{scenario_choice}"
     
     # Chargement des données
-    def load_and_agg(l_type, current_path=None):
+    def load_and_agg(l_type, current_path=None, scenario=None):
         filename = "tx_throughput.csv" if l_type == 'forward' else "rx_throughput.csv"
+        scen = scenario if scenario else selected_scenario
         if current_path is None:
-            current_path = os.path.join("..", "PRED_TRAFFIC", "nb_variable_utilisateurs", selected_scenario, filename)
+            current_path = os.path.join("..", "PRED_TRAFFIC", "nb_variable_utilisateurs", scen, filename)
         
-        print(f"\nChargement des données ({filename})...")
+        print(f"\nChargement des données ({filename}) pour {scen}...")
         while True:
             try:
                 df = load_real_traffic_data(l_type, current_path)
@@ -154,10 +157,10 @@ def main():
                 sys.exit(1)
 
     dfs = {}
-    if exec_mode == 3 or exec_mode == 6:
+    if exec_mode == 3:
         dfs['forward'] = load_and_agg('forward')
         dfs['return'] = load_and_agg('return')
-    else:
+    elif exec_mode != 6:
         dfs[link_type] = load_and_agg(link_type)
         
     selected_freq = None
@@ -432,98 +435,116 @@ def main():
         elif exec_mode == 6:
             # Mode Recherche Exhaustive (Grid-Search)
             print("\n" + "=" * 60)
-            print("         LANCEMENT DU BENCHMARK EXHAUSTIF (GRID-SEARCH)         ")
+            print("         LANCEMENT DU BENCHMARK EXHAUSTIF SUR TOUS LES SCÉNARIOS         ")
             print("=" * 60)
-            print("Ce mode teste tous les modèles sur toutes les configurations possibles :")
+            print("Ce mode teste tous les modèles sur toutes les configurations possibles de tous les scénarios :")
+            print("  - 6 Scénarios de trafic (scenario1 à scenario6)")
             print("  - 2 Voies de trafic (TX/Aller et RX/Retour)")
             print("  - 3 Fréquences d'agrégation (1s, 1min, 10min)")
             print("  - 3 Faisceaux satellites (beam_1, beam_2, beam_3)")
             print("  - 2 Horizons de prédiction (H=1 et H=5)")
-            print("Total de 36 configurations uniques x 6 modèles = 216 runs de prédiction.")
+            print("Total de 6 scénarios x 36 configurations = 216 configurations physiques uniques.")
+            print("Total de 216 configs x 6 modèles = 1296 runs de prédiction.")
             print("Optimisations de vitesse activées (NN époques=10, 1s tronqué à 1500 points).")
             print("-" * 60)
             
             benchmark_results = []
             
             # Liste des dimensions à parcourir
+            scenarios = [f"scenario{i}" for i in range(1, 7)]
             links = ['forward', 'return']
             frequencies = ['1s', '1min', '10min']
             beams = ['beam_1', 'beam_2', 'beam_3']
             horizons = [1, 5]
             
             run_counter = 0
-            total_runs = 36 * 6
+            total_runs = len(scenarios) * len(links) * len(frequencies) * len(beams) * len(horizons) * 6
             
             # On désactive temporairement les warnings d'entraînement
             import warnings
             warnings.filterwarnings("ignore")
             
-            for l_type in links:
-                for freq in frequencies:
-                    # Pré-agréger les données pour cette voie et fréquence
-                    print(f"\n[Agrégation] Préparation de la voie {l_type.upper()} à la fréquence {freq}...")
-                    raw_df = dfs[l_type]
-                    aggregated_df = aggregate_data(raw_df, freq)
-                    
-                    # Optimisation de vitesse critique pour la fréquence 1s
-                    if freq == '1s':
-                        aggregated_df = aggregated_df.iloc[:1500]
+            for scen in scenarios:
+                print(f"\n" + "=" * 60)
+                print(f"       DÉBUT DE L'ÉVALUATION DU SCÉNARIO : {scen.upper()}       ")
+                print("=" * 60)
+                
+                # Charger les données pour ce scénario spécifique
+                scen_dfs = {}
+                try:
+                    scen_dfs['forward'] = load_and_agg('forward', scenario=scen)
+                    scen_dfs['return'] = load_and_agg('return', scenario=scen)
+                except Exception as load_err:
+                    print(f"! Erreur de chargement pour {scen} : {load_err}")
+                    continue
+                
+                for l_type in links:
+                    for freq in frequencies:
+                        # Pré-agréger les données pour cette voie et fréquence
+                        print(f"\n[Agrégation] Préparation de la voie {l_type.upper()} à la fréquence {freq} ({scen})...")
+                        raw_df = scen_dfs[l_type]
+                        aggregated_df = aggregate_data(raw_df, freq)
                         
-                    for beam in beams:
-                        for h in horizons:
-                            # Calcul de la longueur de séquence adaptée au volume de données
-                            s_len = 5 # Fixé à 5 pour homogénéité et vitesse du benchmark
+                        # Optimisation de vitesse critique pour la fréquence 1s
+                        if freq == '1s':
+                            aggregated_df = aggregated_df.iloc[:1500]
                             
-                            # Définir l'évaluation pour chaque modèle
-                            models_fns = {
-                                'AR/MA': lambda df, b, h: run_ar_model(df, target_col=b, train_frac=0.8, lags=10, horizon=h),
-                                'ARIMA(5,1,0)': lambda df, b, h: run_arima_model(df, target_col=b, train_frac=0.8, order=(5,1,0), horizon=h),
-                                'Random Forest': lambda df, b, h: run_rf_model(df, target_col=b, train_frac=0.8, seq_length=s_len, horizon=h),
-                                'SVM': lambda df, b, h: run_svm_model(df, target_col=b, train_frac=0.8, seq_length=s_len, horizon=h),
-                                'GRU PyTorch': lambda df, b, h: run_nn_model(df, target_col=b, train_frac=0.8, seq_length=s_len, horizon=h, epochs=10, model_type='gru'),
-                                'LSTM PyTorch': lambda df, b, h: run_nn_model(df, target_col=b, train_frac=0.8, seq_length=s_len, horizon=h, epochs=10, model_type='lstm')
-                              }
-                            
-                            print(f"\n---> Config: Voie={l_type.upper()}, Freq={freq}, Beam={beam}, Horizon={h} <---")
-                            
-                            for m_name, run_fn in models_fns.items():
-                                run_counter += 1
-                                print(f"  [{run_counter}/{total_runs}] Modèle: {m_name}...", end="", flush=True)
-                                try:
-                                    res = run_fn(aggregated_df, beam, h)
-                                    if res:
-                                        res = compute_additional_metrics(res)
+                        for beam in beams:
+                            for h in horizons:
+                                # Calcul de la longueur de séquence
+                                s_len = 5 # Fixé à 5 pour homogénéité et vitesse du benchmark
+                                
+                                # Définir l'évaluation pour chaque modèle
+                                models_fns = {
+                                    'AR/MA': lambda df, b, h: run_ar_model(df, target_col=b, train_frac=0.8, lags=10, horizon=h),
+                                    'ARIMA(5,1,0)': lambda df, b, h: run_arima_model(df, target_col=b, train_frac=0.8, order=(5,1,0), horizon=h),
+                                    'Random Forest': lambda df, b, h: run_rf_model(df, target_col=b, train_frac=0.8, seq_length=s_len, horizon=h),
+                                    'SVM': lambda df, b, h: run_svm_model(df, target_col=b, train_frac=0.8, seq_length=s_len, horizon=h),
+                                    'GRU PyTorch': lambda df, b, h: run_nn_model(df, target_col=b, train_frac=0.8, seq_length=s_len, horizon=h, epochs=10, model_type='gru'),
+                                    'LSTM PyTorch': lambda df, b, h: run_nn_model(df, target_col=b, train_frac=0.8, seq_length=s_len, horizon=h, epochs=10, model_type='lstm')
+                                }
+                                
+                                print(f"\n---> Config [{scen.upper()}]: Voie={l_type.upper()}, Freq={freq}, Beam={beam}, Horizon={h} <---")
+                                
+                                for m_name, run_fn in models_fns.items():
+                                    run_counter += 1
+                                    print(f"  [{run_counter}/{total_runs}] Modèle: {m_name}...", end="", flush=True)
+                                    try:
+                                        res = run_fn(aggregated_df, beam, h)
+                                        if res:
+                                            res = compute_additional_metrics(res)
+                                            
+                                            # Stocker les métriques avec les métadonnées de la configuration et du scénario
+                                            record = {
+                                                'scenario': scen,
+                                                'link_type': l_type,
+                                                'freq': freq,
+                                                'beam_name': beam,
+                                                'horizon': h,
+                                                'model_name': m_name,
+                                                'mae': res['mae'],
+                                                'rmse': res['rmse'],
+                                                'mape': res['mape'],
+                                                'r2': res['r2'],
+                                                'execution_time': res['execution_time']
+                                            }
+                                            benchmark_results.append(record)
+                                            print(f" OK (MAE={res['mae']:.3f}, R²={res['r2']:.3f})")
+                                        else:
+                                            print(" Échoué (retour vide)")
+                                    except Exception as ex:
+                                        print(f" Erreur : {ex}")
                                         
-                                        # Stocker les métriques avec les métadonnées de la configuration
-                                        record = {
-                                            'link_type': l_type,
-                                            'freq': freq,
-                                            'beam_name': beam,
-                                            'horizon': h,
-                                            'model_name': m_name,
-                                            'mae': res['mae'],
-                                            'rmse': res['rmse'],
-                                            'mape': res['mape'],
-                                            'r2': res['r2'],
-                                            'execution_time': res['execution_time']
-                                        }
-                                        benchmark_results.append(record)
-                                        print(f" OK (MAE={res['mae']:.3f}, R²={res['r2']:.3f})")
-                                    else:
-                                        print(" Échoué (retour vide)")
-                                except Exception as ex:
-                                    print(f" Erreur : {ex}")
-                                    
             # Sauvegarde des résultats sous forme de fichier CSV pour exploitation ultérieure
             if benchmark_results:
                 import pandas as pd
                 df_bench = pd.DataFrame(benchmark_results)
                 df_bench.to_csv("results/exhaustive_benchmark.csv", index=False, sep=";")
                 print("\n" + "=" * 60)
-                print("Recherche exhaustive terminée avec succès !")
+                print("Recherche exhaustive sur tous les scénarios terminée avec succès !")
                 print("Résultats bruts sauvegardés dans : results/exhaustive_benchmark.csv")
                 
-                # Génération et tracé du graphique de synthèse (Heatmap + Win Count)
+                # Génération et tracé du graphique de synthèse (Heatmap R² + Win Count)
                 print("Génération du graphique comparatif global...")
                 plot_exhaustive_benchmark(benchmark_results)
                 print("Graphique sauvegardé dans : results/exhaustive_benchmark.png")
