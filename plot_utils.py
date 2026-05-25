@@ -375,3 +375,91 @@ def plot_metrics_dashboard(results_list: list):
     plt.savefig('results/comparison_metrics_dashboard.png', dpi=150)
     plt.show()
 
+def plot_exhaustive_benchmark(results_list: list):
+    """
+    Génère les graphiques de synthèse pour le benchmark exhaustif (Mode 6) :
+    1. Une heatmap des scores R² moyens par modèle et par groupe de configuration.
+    2. Un barplot montrant le nombre de fois où chaque modèle a obtenu la plus petite MAE.
+    """
+    ensure_results_dir()
+    if not results_list:
+        print("Aucun résultat disponible pour tracer le benchmark exhaustif.")
+        return
+        
+    import pandas as pd
+    df = pd.DataFrame(results_list)
+    
+    # 1. Calcul du nombre de configurations remportées (Win Count)
+    # Groupe unique : (link, freq, beam, horizon) -> 36 combinaisons
+    win_counts = {m: 0 for m in df['model_name'].unique()}
+    groups = df.groupby(['link_type', 'freq', 'beam_name', 'horizon'])
+    
+    for g_keys, g_df in groups:
+        best_row = g_df.loc[g_df['mae'].idxmin()]
+        win_counts[best_row['model_name']] += 1
+        
+    # 2. Préparation de la Heatmap des R² (moyennée sur les faisceaux pour rester lisible)
+    df['link_short'] = df['link_type'].apply(lambda x: 'TX' if x == 'forward' else 'RX')
+    df['config_group'] = df['link_short'] + '_' + df['freq'] + '_H' + df['horizon'].astype(str)
+    
+    config_groups = sorted(df['config_group'].unique())
+    models = sorted(df['model_name'].unique())
+    
+    heatmap_data = np.zeros((len(models), len(config_groups)))
+    for i, m in enumerate(models):
+        for j, cg in enumerate(config_groups):
+            subset = df[(df['model_name'] == m) & (df['config_group'] == cg)]
+            if not subset.empty:
+                heatmap_data[i, j] = subset['r2'].mean()
+            else:
+                heatmap_data[i, j] = np.nan
+                
+    # Tracé
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 9))
+    
+    # 2.1 Heatmap R²
+    im = ax1.imshow(heatmap_data, cmap='RdYlGn', aspect='auto', vmin=-0.2, vmax=1.0)
+    ax1.set_title("Heatmap du Score R² Moyen par Configuration (Moyenne Faisceaux)", fontsize=13, fontweight='bold', pad=15)
+    ax1.set_yticks(range(len(models)))
+    ax1.set_yticklabels(models, fontsize=10, fontweight='bold')
+    ax1.set_xticks(range(len(config_groups)))
+    ax1.set_xticklabels(config_groups, rotation=45, ha='right', fontsize=9)
+    ax1.set_xlabel("Configurations (Voie_Fréquence_Horizon)", fontsize=11, labelpad=10)
+    
+    # Affichage des valeurs textuelles
+    for i in range(len(models)):
+        for j in range(len(config_groups)):
+            val = heatmap_data[i, j]
+            if not np.isnan(val):
+                text_color = "black" if val > 0.4 else "white"
+                ax1.text(j, i, f"{val:.2f}", ha="center", va="center", color=text_color, fontsize=10, fontweight='bold')
+                
+    fig.colorbar(im, ax=ax1, label="Coefficient de Détermination R²")
+    
+    # 2.2 Win Count Barplot
+    model_names = list(win_counts.keys())
+    counts = list(win_counts.values())
+    
+    # Tri décroissant
+    sorted_indices = np.argsort(counts)[::-1]
+    model_names = [model_names[idx] for idx in sorted_indices]
+    counts = [counts[idx] for idx in sorted_indices]
+    
+    bars = ax2.bar(model_names, counts, color='teal', edgecolor='black', alpha=0.85)
+    ax2.set_title("Nombre de Configurations Remportées (Plus petite MAE)", fontsize=13, fontweight='bold', pad=15)
+    ax2.set_ylabel("Nombre de victoires (Total 36)", fontsize=11)
+    ax2.set_xticks(range(len(model_names)))
+    ax2.set_xticklabels(model_names, rotation=35, ha='right', fontsize=10, fontweight='bold')
+    ax2.grid(axis='y', linestyle='--', alpha=0.7)
+    
+    for bar in bars:
+        yval = bar.get_height()
+        ax2.text(bar.get_x() + bar.get_width()/2, yval + 0.3, str(int(yval)), va='bottom', ha='center', fontsize=11, fontweight='bold')
+        
+    plt.tight_layout()
+    plt.savefig('results/exhaustive_benchmark.png', dpi=150)
+    ax1.figure.canvas.draw()
+    plt.close(fig)
+    print("Graphique de synthèse exhaustif sauvegardé dans 'results/exhaustive_benchmark.png'.")
+
+

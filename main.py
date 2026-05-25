@@ -9,7 +9,7 @@ from models.arima_model import run_arima_model
 from models.nn_model import run_nn_model
 from models.rf_model import run_rf_model
 from models.svm_model import run_svm_model
-from plot_utils import plot_single_result, plot_comparison, plot_cross_link, plot_cross_beam, plot_monte_carlo
+from plot_utils import plot_single_result, plot_comparison, plot_cross_link, plot_cross_beam, plot_monte_carlo, plot_exhaustive_benchmark
 import numpy as np
 
 def compute_additional_metrics(res):
@@ -93,22 +93,23 @@ def main():
     print("  3 - Analyse Croisée Voies (Cross-Link : TX vs RX sur 1 faisceau avec 1 modèle)")
     print("  4 - Analyse Croisée Faisceaux (Cross-Beam : 3 faisceaux simultanés sur 1 voie avec 1 modèle)")
     print("  5 - Analyse Monte Carlo (Évaluation de la robustesse stochastique en N runs)")
-    exec_mode = get_user_choice("Votre choix (1 à 5) : ", [1, 2, 3, 4, 5])
+    print("  6 - Recherche Exhaustive (Benchmark global de toutes les configurations et modèles)")
+    exec_mode = get_user_choice("Votre choix (1 à 6) : ", [1, 2, 3, 4, 5, 6])
     
     # Configuration en fonction du mode
     link_type = None
     target_beam = None
     
-    # Étape 1 : Choix de la Voie (si pas mode 3)
-    if exec_mode != 3:
+    # Étape 1 : Choix de la Voie (si pas mode 3 et pas mode 6)
+    if exec_mode != 3 and exec_mode != 6:
         print("\n1. Configuration du Trafic")
         print("  1 - Voie Aller (Forward Link) : trafic descendant, lisse")
         print("  2 - Voie Retour (Return Link) : trafic montant, fragmenté")
         link_choice = get_user_choice("Votre choix (1 ou 2) : ", [1, 2])
         link_type = 'forward' if link_choice == 1 else 'return'
     
-    # Étape 2 : Choix du Faisceau (si pas mode 4)
-    if exec_mode != 4:
+    # Étape 2 : Choix du Faisceau (si pas mode 4 et pas mode 6)
+    if exec_mode != 4 and exec_mode != 6:
         print("\n2. Sélection du Faisceau (Dimension Spatiale)")
         print("  Profils des faisceaux :")
         print("  Beam 1 = Zone Dense urbaine (Charge élevée, forte variance).")
@@ -153,33 +154,37 @@ def main():
                 sys.exit(1)
 
     dfs = {}
-    if exec_mode == 3:
+    if exec_mode == 3 or exec_mode == 6:
         dfs['forward'] = load_and_agg('forward')
         dfs['return'] = load_and_agg('return')
     else:
         dfs[link_type] = load_and_agg(link_type)
         
-    # Étape 3 : Fréquence d'agrégation temporelle
-    print("\n3. Choix de la fréquence d'agrégation temporelle")
-    print("  1 - 1 seconde (aucune agrégation supplémentaire)")
-    print("  2 - 1 minute")
-    print("  3 - 10 minutes")
-    
-    freq_choice = get_user_choice("Votre choix (1, 2 ou 3) : ", [1, 2, 3])
-    freq_map = {1: '1s', 2: '1min', 3: '10min'}
-    selected_freq = freq_map[freq_choice]
-    
-    print(f"\nAgrégation des données avec Pandas à la fréquence : {selected_freq}")
+    selected_freq = None
     dfs_agg = {}
-    for key, df in dfs.items():
-        dfs_agg[key] = aggregate_data(df, selected_freq)
-        if len(dfs_agg[key]) < 50:
-            print(f"! Attention : le jeu de données agrégé pour {key} est trop petit pour de bons apprentissages !")
+    if exec_mode != 6:
+        # Étape 3 : Fréquence d'agrégation temporelle
+        print("\n3. Choix de la fréquence d'agrégation temporelle")
+        print("  1 - 1 seconde (aucune agrégation supplémentaire)")
+        print("  2 - 1 minute")
+        print("  3 - 10 minutes")
+        
+        freq_choice = get_user_choice("Votre choix (1, 2 ou 3) : ", [1, 2, 3])
+        freq_map = {1: '1s', 2: '1min', 3: '10min'}
+        selected_freq = freq_map[freq_choice]
+        
+        print(f"\nAgrégation des données avec Pandas à la fréquence : {selected_freq}")
+        for key, df in dfs.items():
+            dfs_agg[key] = aggregate_data(df, selected_freq)
+            if len(dfs_agg[key]) < 50:
+                print(f"! Attention : le jeu de données agrégé pour {key} est trop petit pour de bons apprentissages !")
     
-    # Étape 4 : Horizon de prédiction
-    print("\n4. Horizon de prédiction")
-    print("Combien de pas de temps dans le futur souhaitez-vous prédire ? (ex: 1 = pas suivant)")
-    horizon = get_user_choice("Votre choix (entier positif, ex: 1, 3, 5..) : ", list(range(1, 100)))
+    horizon = None
+    if exec_mode != 6:
+        # Étape 4 : Horizon de prédiction
+        print("\n4. Horizon de prédiction")
+        print("Combien de pas de temps dans le futur souhaitez-vous prédire ? (ex: 1 = pas suivant)")
+        horizon = get_user_choice("Votre choix (entier positif, ex: 1, 3, 5..) : ", list(range(1, 100)))
     
     # Étape 5 : Choix du Modèle
     model_choice = None
@@ -191,10 +196,11 @@ def main():
     print("-" * 40)
     
     try:
-        # We use dfs_agg[list(dfs_agg.keys())[0]] to get the first df for seq_len calculation
-        sample_df = list(dfs_agg.values())[0]
-        seq_len = min(10, max(1, len(sample_df) // 20))
-        if seq_len < 1: seq_len = 1
+        seq_len = 5
+        if exec_mode != 6:
+            sample_df = list(dfs_agg.values())[0]
+            seq_len = min(10, max(1, len(sample_df) // 20))
+            if seq_len < 1: seq_len = 1
         
         def display_single_result(res, beam, freq):
             print("\n" + "=" * 40)
@@ -422,6 +428,108 @@ def main():
             
             # Génération des graphiques Boxplot
             plot_monte_carlo(mc_results)
+            
+        elif exec_mode == 6:
+            # Mode Recherche Exhaustive (Grid-Search)
+            print("\n" + "=" * 60)
+            print("         LANCEMENT DU BENCHMARK EXHAUSTIF (GRID-SEARCH)         ")
+            print("=" * 60)
+            print("Ce mode teste tous les modèles sur toutes les configurations possibles :")
+            print("  - 2 Voies de trafic (TX/Aller et RX/Retour)")
+            print("  - 3 Fréquences d'agrégation (1s, 1min, 10min)")
+            print("  - 3 Faisceaux satellites (beam_1, beam_2, beam_3)")
+            print("  - 2 Horizons de prédiction (H=1 et H=5)")
+            print("Total de 36 configurations uniques x 6 modèles = 216 runs de prédiction.")
+            print("Optimisations de vitesse activées (NN époques=10, 1s tronqué à 1500 points).")
+            print("-" * 60)
+            
+            benchmark_results = []
+            
+            # Liste des dimensions à parcourir
+            links = ['forward', 'return']
+            frequencies = ['1s', '1min', '10min']
+            beams = ['beam_1', 'beam_2', 'beam_3']
+            horizons = [1, 5]
+            
+            run_counter = 0
+            total_runs = 36 * 6
+            
+            # On désactive temporairement les warnings d'entraînement
+            import warnings
+            warnings.filterwarnings("ignore")
+            
+            for l_type in links:
+                for freq in frequencies:
+                    # Pré-agréger les données pour cette voie et fréquence
+                    print(f"\n[Agrégation] Préparation de la voie {l_type.upper()} à la fréquence {freq}...")
+                    raw_df = dfs[l_type]
+                    aggregated_df = aggregate_data(raw_df, freq)
+                    
+                    # Optimisation de vitesse critique pour la fréquence 1s
+                    if freq == '1s':
+                        aggregated_df = aggregated_df.iloc[:1500]
+                        
+                    for beam in beams:
+                        for h in horizons:
+                            # Calcul de la longueur de séquence adaptée au volume de données
+                            s_len = 5 # Fixé à 5 pour homogénéité et vitesse du benchmark
+                            
+                            # Définir l'évaluation pour chaque modèle
+                            models_fns = {
+                                'AR/MA': lambda df, b, h: run_ar_model(df, target_col=b, train_frac=0.8, lags=10, horizon=h),
+                                'ARIMA(5,1,0)': lambda df, b, h: run_arima_model(df, target_col=b, train_frac=0.8, order=(5,1,0), horizon=h),
+                                'Random Forest': lambda df, b, h: run_rf_model(df, target_col=b, train_frac=0.8, seq_length=s_len, horizon=h),
+                                'SVM': lambda df, b, h: run_svm_model(df, target_col=b, train_frac=0.8, seq_length=s_len, horizon=h),
+                                'GRU PyTorch': lambda df, b, h: run_nn_model(df, target_col=b, train_frac=0.8, seq_length=s_len, horizon=h, epochs=10, model_type='gru'),
+                                'LSTM PyTorch': lambda df, b, h: run_nn_model(df, target_col=b, train_frac=0.8, seq_length=s_len, horizon=h, epochs=10, model_type='lstm')
+                              }
+                            
+                            print(f"\n---> Config: Voie={l_type.upper()}, Freq={freq}, Beam={beam}, Horizon={h} <---")
+                            
+                            for m_name, run_fn in models_fns.items():
+                                run_counter += 1
+                                print(f"  [{run_counter}/{total_runs}] Modèle: {m_name}...", end="", flush=True)
+                                try:
+                                    res = run_fn(aggregated_df, beam, h)
+                                    if res:
+                                        res = compute_additional_metrics(res)
+                                        
+                                        # Stocker les métriques avec les métadonnées de la configuration
+                                        record = {
+                                            'link_type': l_type,
+                                            'freq': freq,
+                                            'beam_name': beam,
+                                            'horizon': h,
+                                            'model_name': m_name,
+                                            'mae': res['mae'],
+                                            'rmse': res['rmse'],
+                                            'mape': res['mape'],
+                                            'r2': res['r2'],
+                                            'execution_time': res['execution_time']
+                                        }
+                                        benchmark_results.append(record)
+                                        print(f" OK (MAE={res['mae']:.3f}, R²={res['r2']:.3f})")
+                                    else:
+                                        print(" Échoué (retour vide)")
+                                except Exception as ex:
+                                    print(f" Erreur : {ex}")
+                                    
+            # Sauvegarde des résultats sous forme de fichier CSV pour exploitation ultérieure
+            if benchmark_results:
+                import pandas as pd
+                df_bench = pd.DataFrame(benchmark_results)
+                df_bench.to_csv("results/exhaustive_benchmark.csv", index=False, sep=";")
+                print("\n" + "=" * 60)
+                print("Recherche exhaustive terminée avec succès !")
+                print("Résultats bruts sauvegardés dans : results/exhaustive_benchmark.csv")
+                
+                # Génération et tracé du graphique de synthèse (Heatmap + Win Count)
+                print("Génération du graphique comparatif global...")
+                plot_exhaustive_benchmark(benchmark_results)
+                print("Graphique sauvegardé dans : results/exhaustive_benchmark.png")
+                print("=" * 60)
+            else:
+                print("\nAucun run n'a produit de résultat exploitable.")
                 
     except Exception as e:
         print(f"\nUne erreur est survenue lors de l'exécution : {e}")

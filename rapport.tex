@@ -465,6 +465,35 @@ Les modèles LSTM et GRU maintiennent une MAE médiane très basse (~0.42 Mbps),
 \subsubsection{Stabilité du Random Forest et de SVR}
 Les algorithmes Random Forest et SVR montrent la plus faible dispersion d'erreur (boîtes à moustaches très resserrées, aucune valeur extrême). En moyennant les prédictions d'arbres indépendants, la forêt aléatoire lisse le bruit de mesure. De même, la zone $\epsilon$-insensible de la SVR filtre naturellement les petites perturbations d'entrée qui n'influencent pas la position des vecteurs de support.
 
+\subsection{Synthèse Globale : Recherche Exhaustive (Mode 6)}
+Pour répondre à l'enjeu opérationnel d'identifier le meilleur algorithme prédictif selon chaque contexte, nous exploitons la recherche exhaustive stochastique (\textbf{Mode 6}). Cette dernière calcule les performances de tous les modèles sur les 36 configurations physiques résultant du produit cartésien : Voies (TX/RX) $\times$ Fréquences (1s/1min/10min) $\times$ Faisceaux (1/2/3) $\times$ Horizons (1/5).
+
+La figure \ref{fig:exhaustive_benchmark} présente les résultats globaux sous forme d'une carte de chaleur (heatmap) des scores $R^2$ moyens (moyennés sur les trois faisceaux) ainsi qu'un classement par nombre de configurations remportées (plus basse MAE).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{results/exhaustive_benchmark.png}
+    \caption{Résultats globaux du benchmark exhaustif (Mode 6) : Heatmap des R² moyens et barplot des victoires par modèle.}
+    \label{fig:exhaustive_benchmark}
+\end{figure}
+
+\subsubsection{Analyse Opérationnelle par Cas d'Usage}
+Les résultats du benchmark exhaustif (figure \ref{fig:exhaustive_benchmark}) permettent de dresser des règles de décision claires pour l'opérateur satellite :
+
+\begin{itemize}
+    \item \textbf{Voie Aller (TX - trafic lisse descendant)} : Sur cette voie stable, les modèles de Deep Learning récurrents (\textbf{LSTM} et \textbf{GRU}) dominent systématiquement, remportant la majorité des configurations. Ils atteignent des scores $R^2$ très élevés (jusqu'à 0.94), confirmant leur aptitude à modéliser les tendances de trafic fluides à long et moyen terme.
+    \item \textbf{Voie Retour (RX - trafic montant fragmenté)} : Le trafic RX, marqué par des arrivées stochastiques bursty (modélisées par des processus de Poisson), présente un très faible rapport signal-sur-bruit. Le score $R^2$ de tous les modèles s'effondre (valeurs négatives ou proches de 0 sur la granularité à la seconde). Dans ces conditions extrêmes, ce sont les modèles robustes non paramétriques comme le \textbf{Random Forest} et la \textbf{SVR} qui s'imposent en MAE, évitant de sur-ajuster le bruit impulsionnel des requêtes.
+    \item \textbf{Impact de la Granularité Temporelle} :
+    \begin{itemize}
+        \item \textit{Agrégation 1s} : Le signal est dominé par les fluctuations haute fréquence. Les réseaux récurrents et la SVR sont les plus précis car ils lissent l'estimation.
+        \item \textit{Agrégation 10min} : La série temporelle est fortement lissée et perd ses dynamiques fines. Les modèles statistiques simples (\textbf{AR/MA} et \textbf{ARIMA}) redeviennent compétitifs en temps d'exécution tout en affichant des erreurs acceptables, bien que les réseaux de neurones conservent l'avantage en précision pure.
+    \end{itemize}
+    \item \textbf{Impact de l'Horizon de Prédiction} : Lorsque l'on passe d'un horizon $H=1$ à un horizon $H=5$ pas dans le futur, la précision de tous les modèles décroît. C'est à cet horizon éloigné que l'écart entre le Deep Learning (qui conserve une mémoire à long terme via ses portes d'oubli) et les modèles autorégressifs simples s'accentue au profit des RNNs.
+\end{itemize}
+
+Cette analyse exhaustive prouve qu'il n'existe pas d'algorithme universel : l'opérateur doit instancier un réseau hybride activant des modèles DL (GRU/LSTM) sur la voie aller, et des modèles d'ensemble ou de frontières de décision (Random Forest/SVR) sur la voie retour pour une allocation dynamique stable et sécurisée.
+
+
 
 % =========================================================================
 \section{Conclusion et Perspectives}
