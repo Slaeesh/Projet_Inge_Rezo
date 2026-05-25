@@ -1,0 +1,2 @@
+Average RX : 20455.6 kpbs
+Average TX : 20458.6 kpbs

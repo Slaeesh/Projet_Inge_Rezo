@@ -1,5 +1,5 @@
-.venv/
-.venv
+code/.venv/
+code/.venv
 __pycache__/
 *.pyc
 .DS_Store

@@ -1,0 +1,378 @@
+\documentclass[11pt]{article}
+%\usepackage[utf8]{inputenc}
+\usepackage{geometry} % to change the page dimensions
+\geometry{margin=.7in} 
+\geometry{a4paper} 
+%%% PACKAGES
+\usepackage{amsmath,amsfonts} 
+\usepackage{graphicx}% support the \includegraphics command and options
+\usepackage{booktabs} % for much better looking tables
+\usepackage{array} % for better arrays (eg matrices) in maths
+\usepackage{paralist} % very flexible & customisable lists (eg. enumerate/itemize, etc.)
+\usepackage{verbatim} % adds environment for commenting out blocks of text & for better verbatim
+\usepackage{subfig} % make it possible to include more than one captioned figure/table in a single float
+\usepackage{fancyhdr} % This should be set AFTER setting up the page geometry
+\usepackage{hyperref}
+\usepackage{color}
+\usepackage{eurosym}
+
+\usepackage[latin1]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[francais]{babel}
+
+\pagestyle{fancy} % options: empty , plain , fancy
+\renewcommand{\headrulewidth}{0pt} % customise the layout...
+\lhead{}\chead{}\rhead{}
+\lfoot{}\cfoot{\thepage}\rfoot{}
+
+\newcommand{\ba}{\boldsymbol{a}}
+\newcommand{\bb}{\boldsymbol{b}}
+\newcommand{\bR}{\boldsymbol{R}}
+\newcommand{\bx}{\boldsymbol{x}}
+
+%%% SECTION TITLE APPEARANCE
+\usepackage{sectsty}
+\allsectionsfont{\sffamily\mdseries\upshape} % (See the fntguide.pdf for font help)
+% (This matches ConTeXt defaults)
+
+%%% ToC (table of contents) APPEARANCE
+\usepackage[nottoc,notlof,notlot]{tocbibind} % Put the bibliography in the ToC
+\usepackage[titles,subfigure]{tocloft} % Alter the style of the Table of Contents
+\renewcommand{\cftsecfont}{\rmfamily\mdseries\upshape}
+\renewcommand{\cftsecpagefont}{\rmfamily\mdseries\upshape} % No bold!
+
+
+\makeatletter
+\def\endexempel{\hfill\qed\@endtheorem}
+\makeatother
+%%% END Article customizations
+
+%%% The "real" document content comes below...
+
+%\graphicspath{{FiguresSynth/},{FIGtrace/}}
+
+\title{}
+\author{}
+%\date{} % Activate to display a given date or no date (if empty),
+         % otherwise the current date is printed 
+
+\begin{document}
+
+\begin{center}
+\Large\bf Résultats sur débit instantané agrégé
+\end{center}
+
+\begin{itemize}
+\item Scénarios:
+\begin{itemize}
+\item[Sc. 1] Débit instantané échantillonné à 100 ms de flux agrégés simulé au niveau de la GW satellite (forward)  pour un mélange de trafic pour 500 terminaux (28000 observations).
+\item[Sc. 2] Débit instantané échantillonné à 100 ms de flux agrégés simulé au niveau de la GW satellite (forward)  pour un mélange de trafic pour 750 terminaux (28000 observations).
+\end{itemize}
+\item Données:
+\begin{itemize}
+\item agrégées sur des fenêtres glissantes de 100, 200, 300, 400, 500 ms
+\item une 2e expérience est conduite sur la \emph{dérivé} des signaux (i.e., prédiction du niveau d'augmentation/baisse du débit instantané, cf., p.6--9)
+\end{itemize}
+\item Prédiction:
+\begin{itemize}
+\item de la valeur agrégée
+\item 100, 200, ..., 900, 1000 ms au delà de la dernière observation 
+\item[] (résultats affichés seulement pour prédictions au delà de la taille de la fenêtre d'agrégation)
+\end{itemize}
+\item Protocol:
+\begin{itemize}
+\item 500 échantillons d'entrainement
+\item optimisation des paramètres via validation croisé sur les données d'entrainement (250 entrainment, 250 test)
+\end{itemize}
+\item Methodes:
+\begin{itemize}
+\item AR 
+\item ARMA
+\item NN - réseau de neurones
+\item SVM poly - SVM avec noyau polynomial
+\item hybride AR NN - AR suivi de NN
+\item hybride AR SVM poly - AR suivi de SVM poly
+\item ``baseline'' : la dernière observation est utilisé comme prédiction
+\item[] (SVM gaussien et hybride AR SVM gaussien n'ont toujours pas fini de tourner...)
+\end{itemize}
+\item Quantification des performances:
+\begin{itemize}
+\item ``Signal-to-distortion ratio'' (SDR)
+$$\textrm{SDR} = 10\log_{10}\Big(||x||_2^2 \,\big/\, ||x-\hat x||_2^2\Big)\mbox{dB}$$
+\item coefficient de correlation $\rho$ entre signal et prédiction
+\item différence entre SDR et SDR obtenu par ``baseline''
+\end{itemize}
+\end{itemize}
+
+\clearpage
+
+\centerline{\bf\large Cross validation example: Sc. 1, AR model order}
+\vspace{4mm}
+\centerline{\includegraphics[width=0.5\linewidth]{DAT2_A5_DS0_DD0_Del1_Pred5_crossval}}
+\clearpage
+
+\centerline{\bf\large Sc. 1}
+\setlength{\tabcolsep}{1pt}
+\noindent\begin{tabular}{lll}
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_datazoom}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_datacov}\\
+%
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDR__AR}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_RHO__AR}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDRbaseD__AR}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDR__ARMA}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_RHO__ARMA}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDRbaseD__ARMA}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDR__NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_RHO__NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDRbaseD__NN}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDR__AR_NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_RHO__AR_NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDRbaseD__AR_NN}\\
+\end{tabular}
+\clearpage
+\noindent\begin{tabular}{lll}
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDR__SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_RHO__SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDRbaseD__SVM_poly}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDR__AR_SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_RHO__AR_SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDRbaseD__AR_SVM_poly}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDR__SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_RHO__SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDRbaseD__SVM_gaussian}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDR__AR_SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_RHO__AR_SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD0_Del1_SDRbaseD__AR_SVM_gaussian}\\
+\end{tabular}
+\clearpage
+
+
+\centerline{\bf\large Sc. 2}
+\setlength{\tabcolsep}{1pt}
+\noindent\begin{tabular}{lll}
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_datazoom}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_datacov}\\
+%
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDR__AR}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_RHO__AR}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDRbaseD__AR}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDR__ARMA}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_RHO__ARMA}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDRbaseD__ARMA}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDR__NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_RHO__NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDRbaseD__NN}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDR__AR_NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_RHO__AR_NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDRbaseD__AR_NN}\\
+\end{tabular}
+\clearpage
+\noindent\begin{tabular}{lll}
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDR__SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_RHO__SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDRbaseD__SVM_poly}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDR__AR_SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_RHO__AR_SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDRbaseD__AR_SVM_poly}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDR__SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_RHO__SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDRbaseD__SVM_gaussian}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDR__AR_SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_RHO__AR_SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD0_Del1_SDRbaseD__AR_SVM_gaussian}\\
+\end{tabular}
+\clearpage
+
+
+\centerline{\bf\large Sc. 1 prediction illustration AR}
+\setlength{\tabcolsep}{1pt}
+\noindent\begin{tabular}{lll}
+5 step & 6 step & 12 step \\
+aggr=100ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A1_DS0_DD0_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A1_DS0_DD0_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A1_DS0_DD0_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=200ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A2_DS0_DD0_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A2_DS0_DD0_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A2_DS0_DD0_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=300ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A3_DS0_DD0_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A3_DS0_DD0_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A3_DS0_DD0_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=400ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A4_DS0_DD0_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A4_DS0_DD0_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A4_DS0_DD0_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=500ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A5_DS0_DD0_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A5_DS0_DD0_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A5_DS0_DD0_Del1_Pred12_data}\vspace{-2mm}\\\end{tabular}
+\clearpage
+
+\centerline{\bf\large Sc. 2 prediction illustration AR}
+\setlength{\tabcolsep}{1pt}
+\noindent\begin{tabular}{lll}
+5 step & 6 step & 12 step \\
+aggr=100ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A1_DS0_DD0_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A1_DS0_DD0_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A1_DS0_DD0_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=200ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A2_DS0_DD0_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A2_DS0_DD0_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A2_DS0_DD0_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=300ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A3_DS0_DD0_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A3_DS0_DD0_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A3_DS0_DD0_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=400ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A4_DS0_DD0_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A4_DS0_DD0_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A4_DS0_DD0_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=500ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A5_DS0_DD0_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A5_DS0_DD0_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A5_DS0_DD0_Del1_Pred12_data}\vspace{-2mm}\\\end{tabular}
+\clearpage
+
+
+
+
+\centerline{\bf\large Sc. 1 difference}
+\setlength{\tabcolsep}{1pt}
+\noindent\begin{tabular}{lll}
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_datazoom}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_datacov}\\
+%
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDR__AR}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_RHO__AR}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDRbaseD__AR}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDR__ARMA}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_RHO__ARMA}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDRbaseD__ARMA}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDR__NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_RHO__NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDRbaseD__NN}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDR__AR_NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_RHO__AR_NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDRbaseD__AR_NN}\\
+\end{tabular}
+\clearpage
+\noindent\begin{tabular}{lll}
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDR__SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_RHO__SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDRbaseD__SVM_poly}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDR__AR_SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_RHO__AR_SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDRbaseD__AR_SVM_poly}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDR__SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_RHO__SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDRbaseD__SVM_gaussian}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDR__AR_SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_RHO__AR_SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_DD1_Del1_SDRbaseD__AR_SVM_gaussian}\\
+\end{tabular}
+\clearpage
+
+\centerline{\bf\large Sc. 2 difference}
+\setlength{\tabcolsep}{1pt}
+\noindent\begin{tabular}{lll}
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_datazoom}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_datacov}\\
+%
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDR__AR}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_RHO__AR}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDRbaseD__AR}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDR__ARMA}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_RHO__ARMA}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDRbaseD__ARMA}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDR__NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_RHO__NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDRbaseD__NN}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDR__AR_NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_RHO__AR_NN}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDRbaseD__AR_NN}\\
+\end{tabular}
+\clearpage
+
+\noindent\begin{tabular}{lll}
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDR__SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_RHO__SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDRbaseD__SVM_poly}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDR__AR_SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_RHO__AR_SVM_poly}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDRbaseD__AR_SVM_poly}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDR__SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_RHO__SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDRbaseD__SVM_gaussian}\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDR__AR_SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_RHO__AR_SVM_gaussian}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_DD1_Del1_SDRbaseD__AR_SVM_gaussian}\\
+\end{tabular}
+
+\clearpage
+
+\centerline{\bf\large Sc. 1 difference prediction illustration AR}
+\setlength{\tabcolsep}{1pt}
+\noindent\begin{tabular}{lll}
+5 step & 6 step & 12 step \\
+aggr=100ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A1_DS0_DD1_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A1_DS0_DD1_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A1_DS0_DD1_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=200ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A2_DS0_DD1_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A2_DS0_DD1_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A2_DS0_DD1_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=300ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A3_DS0_DD1_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A3_DS0_DD1_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A3_DS0_DD1_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=400ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A4_DS0_DD1_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A4_DS0_DD1_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A4_DS0_DD1_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=500ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A5_DS0_DD1_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A5_DS0_DD1_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT1_A5_DS0_DD1_Del1_Pred12_data}\vspace{-2mm}\\\end{tabular}
+\clearpage
+
+\centerline{\bf\large Sc. 2 difference prediction illustration AR}
+\setlength{\tabcolsep}{1pt}
+\noindent\begin{tabular}{lll}
+5 step & 6 step & 12 step \\
+aggr=100ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A1_DS0_DD1_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A1_DS0_DD1_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A1_DS0_DD1_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=200ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A2_DS0_DD1_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A2_DS0_DD1_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A2_DS0_DD1_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=300ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A3_DS0_DD1_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A3_DS0_DD1_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A3_DS0_DD1_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=400ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A4_DS0_DD1_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A4_DS0_DD1_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A4_DS0_DD1_Del1_Pred12_data}\vspace{-2mm}\\
+aggr=500ms&&\\
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A5_DS0_DD1_Del1_Pred5_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A5_DS0_DD1_Del1_Pred6_data}&
+\includegraphics[trim = 25 5 25 10,clip,width=0.33\linewidth]{DAT2_A5_DS0_DD1_Del1_Pred12_data}\vspace{-2mm}\\\end{tabular}
+\clearpage
+
+
+\end{document}
+
+
+
+
